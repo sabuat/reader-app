@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { BookOpen, User, ArrowRight } from 'lucide-react';
+import { BookOpen, ChevronRight } from 'lucide-react';
 
 export default async function BookGallery() {
   const { data: books, error } = await supabase
@@ -7,69 +7,65 @@ export default async function BookGallery() {
     .select('*')
     .eq('published', true);
 
-  if (error) return <div className="p-10 text-red-500">Error: {error.message}</div>;
+  if (error) {
+    return (
+      <div className="p-10 text-brand-red text-center font-bold bg-brand-bg min-h-screen">
+        Error de conexión con la base de datos.
+      </div>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-white">
-      {/* Barra superior con color de marca */}
-      <nav className="border-b border-gray-100 py-4 px-8 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-apapacho-primary rounded-full" /> 
-          <span className="font-bold text-xl tracking-tighter text-apapacho-secondary">APAPACHO</span>
-        </div>
-      </nav>
+    <main className="min-h-screen bg-brand-bg text-brand-dark">
+      {/* Header con colores de marca */}
+      <header className="px-6 pt-12 pb-6 max-w-7xl mx-auto border-b border-brand-gold/20">
+        <span className="text-brand-gold font-bold tracking-[0.2em] text-[10px] uppercase">
+          Catálogo Editorial
+        </span>
+        <h1 className="text-3xl font-light mt-1">
+          Nuestras <span className="font-bold italic">Publicaciones</span>
+        </h1>
+      </header>
 
-      <section className="p-8 md:p-16 max-w-7xl mx-auto">
-        <header className="mb-12">
-          <h1 className="text-4xl font-light text-apapacho-secondary mb-2">
-            Nuestros <span className="font-bold text-apapacho-primary">Libros</span>
-          </h1>
-          <div className="h-1 w-20 bg-apapacho-primary" />
-        </header>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-          {books?.map((book) => (
-            <div key={book.id} className="group cursor-pointer">
-              {/* Portada con efecto de profundidad */}
-              <div className="relative aspect-[2/3] mb-4 shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:-translate-y-2">
-                {book.cover_url ? (
-                  <img 
-                    src={book.cover_url} 
-                    alt={book.title} 
-                    className="object-cover w-full h-full rounded-sm"
-                  />
-                ) : (
-                  <div className="bg-apapacho-light w-full h-full flex flex-col items-center justify-center border border-apapacho-primary/20">
-                    <BookOpen className="text-apapacho-primary mb-2" size={40} />
-                    <span className="text-[10px] uppercase font-bold text-apapacho-primary px-4 text-center">
-                      {book.title}
-                    </span>
-                  </div>
-                )}
-                {/* Overlay al hacer hover */}
-                <div className="absolute inset-0 bg-apapacho-secondary/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="bg-white text-apapacho-secondary px-4 py-2 text-xs font-bold rounded-full">
-                    VER DETALLES
-                  </span>
+      {/* Grid: 3 columnas en móvil (grid-cols-3) y 5 en desktop */}
+      <div className="px-4 py-10 max-w-7xl mx-auto grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-10">
+        {books?.map((book) => (
+          <div key={book.id} className="flex flex-col group">
+            {/* Contenedor de Portada - Mantiene proporción original sin cortes */}
+            <div className="relative w-full rounded-md overflow-hidden shadow-sm bg-white border border-brand-dark/5">
+              {book.cover_url ? (
+                <img 
+                  src={book.cover_url} 
+                  alt={book.title} 
+                  className="w-full h-auto object-contain" 
+                />
+              ) : (
+                <div className="aspect-[2/3] flex items-center justify-center bg-brand-blue-bg">
+                  <BookOpen size={20} className="text-brand-dark/20" />
                 </div>
-              </div>
+              )}
+            </div>
 
-              {/* Info con estilo minimalista */}
-              <h2 className="font-bold text-apapacho-secondary text-lg leading-tight truncate">
+            {/* Información del Libro */}
+            <div className="mt-3 px-1">
+              <h2 className="text-[16px] leading-[1.1] font-semibold text-brand-dark uppercase line-clamp-2">
                 {book.title}
               </h2>
-              <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
-                <User size={12} />
-                <span>{book.author}</span>
-              </div>
-              
-              <div className="mt-4 flex items-center gap-1 text-apapacho-accent font-bold text-xs group-hover:gap-2 transition-all">
-                LEER AHORA <ArrowRight size={14} />
-              </div>
+              <h2 className="text-[14px] italic mt-2 Smd:text-xs font-medium leading-tight line-clamp-2 uppercase">
+                {book.author}
+              </h2>              
+              <button className="mt-1 text-[14px] text-brand-blue flex items-center gap-0.5 font-medium italic hover:underline hover:text-brand-dark-blue transition-colors">
+                Ver detalle <ChevronRight size={10} />
+              </button>
+
+              {/* Botón de acción con color brand-dark-blue */}
+              <button className="mt-4 w-full bg-brand-dark-blue text-white py-2 rounded-md text-[14px] font-bold hover:opacity-90 transition-opacity">
+                LEER AHORA
+              </button>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        ))}
+      </div>
     </main>
   );
 }
