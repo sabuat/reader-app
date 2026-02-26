@@ -23,23 +23,31 @@ export default function BookGallery() {
 
   return (
     <div className="p-4 mt-4">
-      {/* Grid de portadas simple y limpio */}
-      <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6">
+      {/* Usamos 'items-start' para que cada contenedor 
+          se ajuste a su propio contenido sin estirarse 
+      */}
+      <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 items-start">
         {books.map((book) => (
           <div 
             key={book.id} 
             onClick={() => setSelectedBook(book)}
-            className="relative aspect-[2/3] rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer border border-brand-gold/5"
+            /* ELIMINAMOS 'aspect-[2/3]' y 'h-full'.
+               El div ahora es un envoltorio transparente que se pega a la imagen.
+            */
+            className="relative w-full rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer border border-brand-gold/5 bg-transparent"
           >
             {book.cover_url ? (
               <img 
                 src={book.cover_url} 
                 alt={book.title} 
-                /* Cambiado a object-contain para mostrar la imagen al 100% sin cortes */
-                className="w-full h-full object-contain" 
+                /* 'w-full' asegura que ocupe el ancho de la columna.
+                   'h-auto' y 'display: block' eliminan cualquier espacio extra o líneas.
+                */
+                className="w-full h-auto block" 
               />
             ) : (
-              <div className="h-full bg-brand-blue-bg flex items-center justify-center">
+              /* Solo para libros sin portada mantenemos una proporción base */
+              <div className="aspect-[2/3] bg-brand-blue-bg flex items-center justify-center">
                 <BookOpen className="text-brand-dark/20" size={24} />
               </div>
             )}
