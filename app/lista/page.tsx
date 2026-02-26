@@ -1,65 +1,92 @@
 "use client";
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BookOpen } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
-import BookDetailSheet from '@/components/BookDetailSheet';
+import { Bookmark, BookOpen } from 'lucide-react';
+import Link from 'next/link';
 
-export default function BookGallery() {
-  const [books, setBooks] = useState<any[]>([]);
-  const [selectedBook, setSelectedBook] = useState<any>(null);
+export default function MiListaPage() {
+  const [savedBooks, setSavedBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchBooks() {
-      const { data } = await supabase.from('books').select('*').order('published', { ascending: false });
-      if (data) setBooks(data);
-      setLoading(false);
+    async function fetchMyList() {
+      setLoading(true);
+      try {
+        // Traemos la lista unida con los datos del libro
+        const { data, error } = await supabase
+          .from('my_list')
+          .select(`
+            id,
+            book_id,
+            books (*)
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setSavedBooks(data || []);
+      } catch (err) {
+        console.error("Error cargando Mi Lista:", err);
+      } finally {
+        setLoading(false);
+      }
     }
-    fetchBooks();
+    fetchMyList();
   }, []);
 
-  if (loading) return <div className="p-20 text-center font-bold text-brand-gold">Cargando...</div>;
+  if (loading) return (
+    <div className="flex h-screen items-center justify-center bg-brand-bg">
+      <div className="w-8 h-8 border-4 border-brand-gold border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   return (
-    <div className="p-4 mt-4">
-      {/* Usamos 'items-start' para que cada contenedor 
-          se ajuste a su propio contenido sin estirarse 
-      */}
-      <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 items-start">
-        {books.map((book) => (
-          <div 
-            key={book.id} 
-            onClick={() => setSelectedBook(book)}
-            /* ELIMINAMOS 'aspect-[2/3]' y 'h-full'.
-               El div ahora es un envoltorio transparente que se pega a la imagen.
-            */
-            className="relative w-full rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer border border-brand-gold/5 bg-transparent"
-          >
-            {book.cover_url ? (
-              <img 
-                src={book.cover_url} 
-                alt={book.title} 
-                /* 'w-full' asegura que ocupe el ancho de la columna.
-                   'h-auto' y 'display: block' eliminan cualquier espacio extra o líneas.
-                */
-                className="w-full h-auto block" 
-              />
-            ) : (
-              /* Solo para libros sin portada mantenemos una proporción base */
-              <div className="aspect-[2/3] bg-brand-blue-bg flex items-center justify-center">
-                <BookOpen className="text-brand-dark/20" size={24} />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+    <div className="min-h-screen bg-brand-bg px-6 pb-20">
+      <header className="pt-8 pb-6 border-b border-brand-gold/10 mb-8">
+        <span className="text-brand-gold font-bold tracking-[0.2em] text-[10px] uppercase">
+          Guardados
+        </span>
+        <h1 className="text-3xl font-serif italic text-brand-dark">
+          Mi Lista
+        </h1>
+      </header>
 
-      <AnimatePresence>
-        {selectedBook && (
-          <BookDetailSheet book={selectedBook} onClose={() => setSelectedBook(null)} />
-        )}
-      </AnimatePresence>
+      {savedBooks.length === 0 ? (
+        <div className="py-20 text-center opacity-40">
+          <Bookmark size={48} className="mx-auto mb-4" />
+          <p className="text-sm italic">Aún no has guardado ningún libro.</p>
+          <Link href="/" className="inline-block mt-4 border-b border-brand-gold text-brand-gold font-bold text-xs uppercase tracking-widest pb-1">
+            Explorar librería
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 items-start">
+          {savedBooks.map((item) => {
+            // Extraemos la información del libro
+            const book = Array.isArray(item.books) ? item.books[0] : item.books;
+            
+            return (
+              <Link 
+                key={item.id} 
+                href={`/leer/${book?.id}`}
+                className="relative aspect-[5/8] rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer border border-brand-gold/5 block"
+              >
+                {book?.cover_url ? (
+                  <img 
+                    src={book.cover_url} 
+                    alt={book?.title} 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <div className="w-full h-full bg-brand-blue-bg flex items-center justify-center">
+                    <BookOpen className="text-brand-dark/20" size={24} />
+                  </div>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
