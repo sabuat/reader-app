@@ -1,74 +1,61 @@
+"use client";
+
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { BookOpen } from 'lucide-react';
-import { BookModal } from '@/components/BookModal';
+import { AnimatePresence } from 'framer-motion';
+import BookDetailSheet from '@/components/BookDetailSheet';
 
-export default async function BookGallery() {
-  // Eliminamos .eq('published', true) para que traiga todos los libros
-  const { data: books, error } = await supabase
-    .from('books')
-    .select('*')
-    .order('published', { ascending: false });
+export default function BookGallery() {
+  const [books, setBooks] = useState<any[]>([]);
+  const [selectedBook, setSelectedBook] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (error) return <div className="p-10 text-brand-red text-center">Error: {error.message}</div>;
+  useEffect(() => {
+    async function fetchBooks() {
+      const { data } = await supabase.from('books').select('*').order('published', { ascending: false });
+      if (data) setBooks(data);
+      setLoading(false);
+    }
+    fetchBooks();
+  }, []);
+
+  if (loading) return <div className="min-h-screen bg-brand-bg flex items-center justify-center font-bold text-brand-dark">Cargando...</div>;
 
   return (
-    <main className="min-h-screen bg-brand-bg text-brand-dark">
-      <header className="px-6 pt-12 pb-6 max-w-7xl mx-auto border-b border-brand-gold/20">
-        <span className="text-brand-gold font-bold tracking-[0.2em] text-[10px] uppercase">
-          Catálogo Editorial
-        </span>
-        <h1 className="text-3xl font-light mt-1">
-          Nuestras <span className="font-bold italic">Publicaciones</span>
-        </h1>
+    <main className="min-h-screen bg-brand-bg pb-20">
+      <header className="px-4 pt-10 pb-4">
+        <h1 className="text-xl font-sans tracking-widest text-brand-dark uppercase">Librería</h1>
       </header>
 
-      <div className="px-4 py-10 max-w-7xl mx-auto grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-10">
-        {books?.map((book) => (
-          <div key={book.id} className="flex flex-col group h-full">
-            <div className="relative w-full rounded-md overflow-hidden shadow-sm bg-white border border-brand-dark/5">
-              {book.cover_url ? (
-                <img 
-                  src={book.cover_url} 
-                  alt={book.title} 
-                  className="w-full h-auto object-contain" 
-                />
-              ) : (
-                <div className="aspect-[2/3] flex items-center justify-center bg-brand-blue-bg">
-                  <BookOpen size={20} className="text-brand-dark/20" />
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3 px-1 flex flex-col flex-grow">
-              <h3 className="text-xl font-serif italic text-brand-gold mb-2 transition">
-                {book.title}
-              </h3>
-              
-              <p className="hidden md:block text-sm font-texto uppercase tracking-widest text-gray-500">
-                {book.author}
-              </p>
-
-              <div className="mt-3">
-                <BookModal book={book} />
+      {/* Grid de portadas simple: 3 columnas siempre */}
+      <div className="px-2 grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-6">
+        {books.map((book) => (
+          <div 
+            key={book.id} 
+            onClick={() => setSelectedBook(book)}
+            className="relative aspect-[2/3] rounded-sm overflow-hidden shadow-md active:scale-95 transition-transform cursor-pointer"
+          >
+            {book.cover_url ? (
+              <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-brand-blue-bg flex items-center justify-center">
+                <BookOpen className="text-brand-dark/20" />
               </div>
-
-              {/* Lógica condicional para el botón */}
-              {book.published ? (
-                <button className="mt-auto w-full bg-brand-dark-blue text-white py-2 rounded-md text-[14px] font-bold active:scale-95 transition-transform">
-                  LEER AHORA
-                </button>
-              ) : (
-                <button 
-                  disabled 
-                  className="mt-auto w-full bg-gray-400 text-white py-2 rounded-md text-[14px] font-bold cursor-not-allowed opacity-70"
-                >
-                  PRÓXIMAMENTE
-                </button>
-              )}
-            </div>
+            )}
           </div>
         ))}
       </div>
+
+      {/* Pantalla de detalle que desliza desde la derecha */}
+      <AnimatePresence>
+        {selectedBook && (
+          <BookDetailSheet 
+            book={selectedBook} 
+            onClose={() => setSelectedBook(null)} 
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
