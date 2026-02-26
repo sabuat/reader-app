@@ -3,23 +3,27 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Bookmark, BookOpen } from 'lucide-react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function MiListaPage() {
   const [savedBooks, setSavedBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter(); // Inicializamos el enrutador programático
 
   useEffect(() => {
     async function fetchMyList() {
       setLoading(true);
       try {
-        // Traemos la lista unida con los datos del libro
         const { data, error } = await supabase
           .from('my_list')
           .select(`
             id,
             book_id,
-            books (*)
+            books (
+              id,
+              title,
+              cover_url
+            )
           `)
           .order('created_at', { ascending: false });
 
@@ -54,35 +58,41 @@ export default function MiListaPage() {
       {savedBooks.length === 0 ? (
         <div className="py-20 text-center opacity-40">
           <Bookmark size={48} className="mx-auto mb-4" />
-          <p className="text-sm italic">Aún no has guardado ningún libro.</p>
-          <Link href="/" className="inline-block mt-4 border-b border-brand-gold text-brand-gold font-bold text-xs uppercase tracking-widest pb-1">
+          <p className="text-sm italic text-brand-dark">Aún no has guardado ningún libro.</p>
+          <button 
+            onClick={() => router.push('/')} 
+            className="inline-block mt-4 border-b border-brand-gold text-brand-gold font-bold text-xs uppercase tracking-widest pb-1"
+          >
             Explorar librería
-          </Link>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 items-start">
           {savedBooks.map((item) => {
-            // Extraemos la información del libro
             const book = Array.isArray(item.books) ? item.books[0] : item.books;
             
+            // ESCUDO: Si el libro viene vacío de la base de datos, lo saltamos y evitamos el error.
+            if (!book?.id) return null;
+
             return (
-              <Link 
+              <div 
                 key={item.id} 
-                href={`/leer/${book?.id}`}
-                className="relative aspect-[5/8] rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer border border-brand-gold/5 block"
+                // NAVEGACIÓN DIRECTA: Usamos onClick + router.push en lugar de <Link>
+                onClick={() => router.push(`/leer/${book.id}`)}
+                className="relative aspect-[5/8] rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer border border-brand-gold/5 block bg-brand-blue-bg"
               >
-                {book?.cover_url ? (
+                {book.cover_url ? (
                   <img 
                     src={book.cover_url} 
-                    alt={book?.title} 
+                    alt={book.title} 
                     className="w-full h-full object-cover" 
                   />
                 ) : (
-                  <div className="w-full h-full bg-brand-blue-bg flex items-center justify-center">
+                  <div className="w-full h-full flex items-center justify-center">
                     <BookOpen className="text-brand-dark/20" size={24} />
                   </div>
                 )}
-              </Link>
+              </div>
             );
           })}
         </div>
