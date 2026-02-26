@@ -3,10 +3,11 @@ import { BookOpen } from 'lucide-react';
 import { BookModal } from '@/components/BookModal';
 
 export default async function BookGallery() {
+  // Eliminamos .eq('published', true) para que traiga todos los libros
   const { data: books, error } = await supabase
     .from('books')
     .select('*')
-    .eq('published', true);
+    .order('published', { ascending: false });
 
   if (error) return <div className="p-10 text-brand-red text-center">Error: {error.message}</div>;
 
@@ -23,7 +24,6 @@ export default async function BookGallery() {
 
       <div className="px-4 py-10 max-w-7xl mx-auto grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-10">
         {books?.map((book) => (
-          // h-full asegura que todas las celdas del grid midan lo mismo
           <div key={book.id} className="flex flex-col group h-full">
             <div className="relative w-full rounded-md overflow-hidden shadow-sm bg-white border border-brand-dark/5">
               {book.cover_url ? (
@@ -39,9 +39,8 @@ export default async function BookGallery() {
               )}
             </div>
 
-            {/* flex-grow permite que esta sección ocupe el espacio restante */}
             <div className="mt-3 px-1 flex flex-col flex-grow">
-              <h3 className="text-2xl font-serif italic text-brand-gold mb-2 transition">
+              <h3 className="text-xl font-serif italic text-brand-gold mb-2 transition">
                 {book.title}
               </h3>
               
@@ -49,15 +48,23 @@ export default async function BookGallery() {
                 {book.author}
               </p>
 
-              {/* Contenedor para que el enlace no se estire y la línea sea solo del texto */}
               <div className="mt-3">
                 <BookModal book={book} />
               </div>
 
-              {/* mt-auto empuja el botón al borde inferior de la tarjeta */}
-              <button className="mt-auto w-full bg-brand-dark-blue text-white py-2 rounded-md text-[14px] font-bold active:scale-95 transition-transform">
-                LEER AHORA
-              </button>
+              {/* Lógica condicional para el botón */}
+              {book.published ? (
+                <button className="mt-auto w-full bg-brand-dark-blue text-white py-2 rounded-md text-[14px] font-bold active:scale-95 transition-transform">
+                  LEER AHORA
+                </button>
+              ) : (
+                <button 
+                  disabled 
+                  className="mt-auto w-full bg-gray-400 text-white py-2 rounded-md text-[14px] font-bold cursor-not-allowed opacity-70"
+                >
+                  PRÓXIMAMENTE
+                </button>
+              )}
             </div>
           </div>
         ))}
