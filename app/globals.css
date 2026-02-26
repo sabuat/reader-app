@@ -1,7 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Poiret+One&family=Quicksand:wght@300..700&display=swap');
 @import "tailwindcss";
 
-@theme {
-  /* En v4, las variables deben estar AQUÍ para existir como clases bg- o text- */
+:root {
+  --background: #F9F9F7;
+  --foreground: #2D2D2D;
   --color-brand-bg: #F9F9F7;
   --color-brand-dark: #2D2D2D;
   --color-brand-gold: #C5A059;
@@ -9,12 +11,29 @@
   --color-brand-blue: #8C97AE;
   --color-brand-blue-bg: #8c97ae8c;
   --color-brand-dark-blue: #00719dff;
-
-  --color-background: var(--color-brand-bg);
-  --color-foreground: var(--color-brand-dark);
 }
 
-/* Eliminamos la regla body { background: var(--background); } que forzaba el blanco */
+@theme inline {
+  /* Registro de Colores */
+  --color-brand-bg: var(--color-brand-bg);
+  --color-brand-dark: var(--color-brand-dark);
+  --color-brand-gold: var(--color-brand-gold);
+  --color-brand-red: var(--color-brand-red);
+  --color-brand-blue: var(--color-brand-blue);
+  --color-brand-blue-bg: var(--color-brand-blue-bg);
+  --color-brand-dark-blue: var(--color-brand-dark-blue);
+
+  /* Registro de Tipografías para generar clases font-* */
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Lato", sans-serif;
+  --font-poiret: "Poiret One", cursive;
+  --font-texto: "Quicksand", sans-serif;
+}
+
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-brand-bg);
+  color: var(--foreground);
+  /* Aplicamos Lato como fuente base por defecto */
+  font-family: var(--font-sans);
+  margin: 0;
 }
