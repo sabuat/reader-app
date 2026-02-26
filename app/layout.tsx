@@ -3,70 +3,67 @@
 import './globals.css';
 import Image from 'next/image';
 import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Home, Bookmark, BookOpen, User, Menu } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import SideMenu from '@/components/SideMenu';
+import Link from 'next/link';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const isReadingMode = pathname?.startsWith('/leer/');
+
+  // Función para determinar si un link está activo
+  const isActive = (path: string) => pathname === path;
 
   return (
     <html lang="es">
-      <body className="bg-brand-bg text-brand-dark min-h-screen flex flex-col overflow-x-hidden font-sans">
+      <body className="bg-brand-bg text-brand-dark min-h-screen flex flex-col overflow-x-hidden antialiased">
         
-        {/* BARRA SUPERIOR */}
-        <header className="fixed top-0 w-full h-16 bg-brand-bg/80 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10">
-          <div className="flex items-center">
-            <Image 
-              src="/logo.png" 
-              alt="Logo Apapacho" 
-              width={110} 
-              height={35} 
-              className="object-contain"
-              priority
-            />
-          </div>
-          
-          <button 
-            onClick={() => setIsMenuOpen(true)}
-            className="p-2 active:scale-90 transition-transform"
-          >
-            <Menu size={24} className="text-brand-dark" />
-          </button>
-        </header>
+        {!isReadingMode && (
+          <header className="fixed top-0 w-full h-16 bg-brand-bg/80 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10">
+            <Link href="/" className="flex items-center active:scale-95 transition-transform">
+              <Image src="/logo.png" alt="Logo" width={110} height={35} className="object-contain" priority />
+            </Link>
+            
+            <button onClick={() => setIsMenuOpen(true)} className="p-2 active:scale-90 transition-transform">
+              <Menu size={24} className="text-brand-dark" />
+            </button>
+          </header>
+        )}
 
-        {/* MENÚ LATERAL DESLIZANTE */}
         <AnimatePresence>
-          {isMenuOpen && (
-            <SideMenu onClose={() => setIsMenuOpen(false)} />
-          )}
+          {isMenuOpen && <SideMenu onClose={() => setIsMenuOpen(false)} />}
         </AnimatePresence>
 
-        <main className="flex-grow pt-20 pb-24">
+        <main className={`flex-grow ${isReadingMode ? 'pt-0' : 'pt-16'} pb-24`}>
           {children}
         </main>
 
-        {/* NAVEGACIÓN INFERIOR */}
+        {/* NAVEGACIÓN INFERIOR CONFIGURADA */}
         <nav className="fixed bottom-0 w-full h-20 bg-white/90 backdrop-blur-lg border-t border-brand-gold/10 px-8 flex justify-between items-center z-40 pb-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-          <button className="flex flex-col items-center gap-1 text-brand-dark-blue">
+          <Link href="/" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
             <Home size={22} />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
-          </button>
+          </Link>
           
-          <button className="flex flex-col items-center gap-1 text-gray-400">
+          <Link href="/lista" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/lista') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
             <Bookmark size={22} />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Mi Lista</span>
-          </button>
+          </Link>
 
-          <button className="flex flex-col items-center gap-1 text-gray-400">
+          <Link href="/lecturas" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/lecturas') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
             <BookOpen size={22} />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Lecturas</span>
-          </button>
+          </Link>
 
-          <button className="flex flex-col items-center gap-1 text-gray-400">
+          <Link href="/cuenta" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/cuenta') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
             <User size={22} />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Cuenta</span>
-          </button>
+          </Link>
         </nav>
       </body>
     </html>
