@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 export default function SideMenu({ onClose }: { onClose: () => void }) {
   const menuItems = [
-    { icon: Home, label: 'Home', href: '/' },
+    { icon: Home, label: 'Home', href: '/home' },
     { icon: Bookmark, label: 'Mi lista', href: '/lista' },
     { icon: BookOpen, label: 'Lecturas', href: '/lecturas' },
     { icon: User, label: 'Mi cuenta', href: '/cuenta' },

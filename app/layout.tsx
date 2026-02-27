@@ -45,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* NAVEGACIÓN INFERIOR CONFIGURADA */}
         <nav className="fixed bottom-0 w-full h-20 bg-white/90 backdrop-blur-lg border-t border-brand-gold/10 px-8 flex justify-between items-center z-40 pb-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-          <Link href="/" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
+          <Link href="/home" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
             <Home size={22} />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
           </Link>
