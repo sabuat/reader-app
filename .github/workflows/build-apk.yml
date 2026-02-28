@@ -1,6 +1,5 @@
 name: Compilar APK Android
 
-# Esto hace que se compile automáticamente cada vez que subas código a la rama 'main'
 on:
   push:
     branches:
@@ -8,8 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Usamos un servidor Linux rápido en la nube
-
+    runs-on: ubuntu-latest 
     steps:
       - name: 1. Descargar el código
         uses: actions/checkout@v4
@@ -17,7 +15,7 @@ jobs:
       - name: 2. Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # La versión de Node que usa tu proyecto
+          node-version: '20' 
 
       - name: 3. Instalar dependencias de NPM
         run: npm install
