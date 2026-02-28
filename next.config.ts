@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export', // <-- ESTO ES LO QUE CREA LA CARPETA 'out'
+  output: 'export',
   images: {
-    unoptimized: true, // Requisito para exportar apps móviles
+    unoptimized: true,
   },
 };
 
