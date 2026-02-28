@@ -23,8 +23,8 @@ jobs:
 
       - name: 4. Exportar Next.js (Archivos estáticos)
         env:
-          NEXT_PUBLIC_SUPABASE_URL: "PEGA_AQUI_TU_URL"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "PEGA_AQUI_TU_CLAVE"
+          NEXT_PUBLIC_SUPABASE_URL: "https://wxdagnvlotoonpbtungx.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4ZGFnbnZsb3Rvb25wYnR1bmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDk1MTMsImV4cCI6MjA4NzI4NTUxM30.gNrVv7Wdlx714A4fkOCxGvUGswhurcXf_E31l7wkFM0"
         run: npm run build
 
       - name: 5. Sincronizar Capacitor
