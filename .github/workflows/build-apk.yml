@@ -40,6 +40,7 @@ jobs:
         working-directory: ./android
         run: |
           chmod +x ./gradlew
+          ./gradlew signingReport
           ./gradlew assembleDebug
 
       - name: 8. Entregar el APK
