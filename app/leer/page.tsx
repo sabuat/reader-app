@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ChevronLeft, ChevronRight, BookOpen, X } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 
-export default function ReaderPage() {
-  const params = useParams();
+function ReaderContent() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id'); // Sacamos el ID de la URL
   const router = useRouter();
-  
+
   const [userId, setUserId] = useState<string | null>(null);
   const [chapters, setChapters] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -20,7 +21,6 @@ export default function ReaderPage() {
   const [fontSize, setFontSize] = useState('text-lg');
   const [nightMode, setNightMode] = useState(false);
 
-  // NUEVO: Estados para controlar la publicidad
   const [sessionReads, setSessionReads] = useState(0);
   const [showAd, setShowAd] = useState(false);
 
@@ -31,13 +31,13 @@ export default function ReaderPage() {
     if (savedNightMode) setNightMode(savedNightMode);
 
     async function loadData() {
-      if (!params.id) return;
+      if (!id) return;
       setLoading(true);
-      
+
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          router.push('/'); 
+          router.push('/');
           return;
         }
         setUserId(user.id);
@@ -45,18 +45,18 @@ export default function ReaderPage() {
         const { data: chs } = await supabase
           .from('chapters')
           .select('*')
-          .eq('book_id', params.id)
+          .eq('book_id', id)
           .order('chapter_number', { ascending: true });
 
         const { data: prog } = await supabase
           .from('reading_progress')
           .select('chapter_number, completed_chapters')
-          .eq('book_id', params.id)
+          .eq('book_id', id)
           .eq('user_id', user.id)
           .maybeSingle();
 
         if (chs) setChapters(chs);
-        
+
         if (prog) {
           setCompletedChapters(prog.completed_chapters || []);
           const lastIndex = chs?.findIndex(c => c.chapter_number === prog.chapter_number);
@@ -69,39 +69,35 @@ export default function ReaderPage() {
       }
     }
     loadData();
-  }, [params.id, router]);
+  }, [id, router]);
 
   const handleNextChapter = async () => {
-    if (currentIdx >= chapters.length - 1 || !userId) return;
-    
+    if (currentIdx >= chapters.length - 1 || !userId || !id) return;
+
     const currentChapter = chapters[currentIdx];
     const nextChapter = chapters[currentIdx + 1];
     const newCompleted = Array.from(new Set([...completedChapters, currentChapter.chapter_number]));
-    
+
     try {
       const { error } = await supabase.from('reading_progress').upsert({
         user_id: userId,
-        book_id: params.id,
+        book_id: id,
         chapter_number: nextChapter.chapter_number,
         completed_chapters: newCompleted,
         last_read_at: new Date().toISOString(),
       }, { onConflict: 'user_id,book_id' });
 
       if (error) throw error;
-      
+
       setCompletedChapters(newCompleted);
       setCurrentIdx(currentIdx + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // LÓGICA DE PUBLICIDAD: Sumamos 1 a la sesión. Si es múltiplo de 2, mostramos anuncio.
       setSessionReads((prev) => {
         const newCount = prev + 1;
-        if (newCount % 2 === 0) {
-          setShowAd(true);
-        }
+        if (newCount % 2 === 0) setShowAd(true);
         return newCount;
       });
-
     } catch (err) {
       console.error("Error al salvar progreso:", err);
     }
@@ -134,7 +130,6 @@ export default function ReaderPage() {
 
   return (
     <div className={`min-h-screen flex flex-col antialiased transition-colors duration-500 ${nightMode ? 'bg-[#121212]' : 'bg-[#F9F9F7]'}`}>
-      
       <nav className={`p-6 shrink-0 flex justify-between items-center sticky top-0 backdrop-blur-md z-20 transition-colors duration-500 ${nightMode ? 'bg-[#121212]/80' : 'bg-[#F9F9F7]/80'}`}>
         <Link href="/home" className="flex items-center gap-2 text-brand-gold active:scale-90 transition-transform">
           <ChevronLeft size={20} />
@@ -166,38 +161,29 @@ export default function ReaderPage() {
 
         <footer className="mt-20 pt-10 border-t border-brand-gold/10 flex justify-between items-center">
           {hasPrev ? (
-            <button 
-              onClick={handlePrevChapter}
-              className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-black text-black hover:text-brand-gold'}`}
-            >
+            <button onClick={handlePrevChapter} className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-black text-black hover:text-brand-gold'}`}>
               <ChevronLeft size={12} className="inline mr-1 mb-0.5" /> Anterior
             </button>
           ) : <div />}
 
           {hasNext ? (
-            <button 
-              onClick={handleNextChapter}
-              className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-black text-black hover:text-brand-gold'}`}
-            >
+            <button onClick={handleNextChapter} className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-black text-black hover:text-brand-gold'}`}>
               Siguiente <ChevronRight size={12} className="inline ml-1 mb-0.5" />
             </button>
           ) : (
             <div className="flex flex-col items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Fin de obra</span>
-              <button 
-                onClick={async () => {
-                  if (!userId) return;
-                  const finalCompleted = Array.from(new Set([...completedChapters, currentChapter.chapter_number]));
-                  await supabase.from('reading_progress').upsert({
-                    user_id: userId,
-                    book_id: params.id,
-                    completed_chapters: finalCompleted,
-                    last_read_at: new Date().toISOString()
-                  }, { onConflict: 'user_id,book_id' });
-                  setCompletedChapters(finalCompleted);
-                }}
-                className="text-[9px] text-brand-gold font-bold underline"
-              >
+              <button onClick={async () => {
+                if (!userId || !id) return;
+                const finalCompleted = Array.from(new Set([...completedChapters, currentChapter.chapter_number]));
+                await supabase.from('reading_progress').upsert({
+                  user_id: userId,
+                  book_id: id,
+                  completed_chapters: finalCompleted,
+                  last_read_at: new Date().toISOString()
+                }, { onConflict: 'user_id,book_id' });
+                setCompletedChapters(finalCompleted);
+              }} className="text-[9px] text-brand-gold font-bold underline">
                 Marcar como finalizado
               </button>
             </div>
@@ -205,40 +191,34 @@ export default function ReaderPage() {
         </footer>
       </article>
 
-      {/* PANTALLA DE PUBLICIDAD (Aparece cada 2 capítulos) */}
       <AnimatePresence>
         {showAd && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 backdrop-blur-sm"
-          >
+          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
             <div className="bg-white rounded-[2rem] p-6 max-w-sm w-full text-center shadow-2xl">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-bold">Publicidad</span>
-                <button onClick={() => setShowAd(false)} className="p-1 active:scale-90 bg-gray-100 rounded-full">
-                  <X size={16} className="text-gray-500" />
-                </button>
+                <button onClick={() => setShowAd(false)} className="p-1 active:scale-90 bg-gray-100 rounded-full"><X size={16} className="text-gray-500" /></button>
               </div>
-              
-              {/* Aquí irá el código de AdMob u otro proveedor en el futuro */}
               <div className="w-full aspect-[4/5] bg-brand-blue-bg border border-brand-gold/20 rounded-xl mb-6 flex flex-col items-center justify-center p-4">
                 <span className="text-brand-dark/30 font-serif italic text-xl mb-2">Tu Anuncio Aquí</span>
                 <span className="text-[10px] text-brand-dark/40 font-bold uppercase tracking-widest text-center">Apoya a los autores viendo esta publicidad</span>
               </div>
-
-              <button 
-                onClick={() => setShowAd(false)}
-                className="w-full bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all"
-              >
+              <button onClick={() => setShowAd(false)} className="w-full bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all">
                 Continuar leyendo
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
+  );
+}
+
+// ESTE WRAPPER ES OBLIGATORIO EN NEXT.JS PARA USAR SEARCHPARAMS
+export default function ReaderPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#F9F9F7]"><div className="w-8 h-8 border-4 border-brand-gold border-t-transparent rounded-full animate-spin" /></div>}>
+      <ReaderContent />
+    </Suspense>
   );
 }

@@ -64,16 +64,9 @@ export default function MisLecturasPage() {
       ) : (
         <div className="space-y-6">
           {readings.map((item) => {
-            // Manejamos si books viene como objeto o array por seguridad
             const book = Array.isArray(item.books) ? item.books[0] : item.books;
-            
-            // DENOMINADOR: Columna 'chapters' de la tabla 'books'
             const totalChapters = book?.chapters || 0;
-            
-            // NUMERADOR: Cantidad de ítems en el array 'completed_chapters'
             const completedCount = item.completed_chapters?.length || 0;
-            
-            // CÁLCULO DEL PORCENTAJE
             const progressPercent = totalChapters > 0 
               ? Math.min(Math.round((completedCount / totalChapters) * 100), 100)
               : 0;
@@ -81,7 +74,8 @@ export default function MisLecturasPage() {
             return (
               <Link 
                 key={book?.id} 
-                href={`/leer/${book?.id}`} 
+                /* AQUÍ ESTÁ EL CAMBIO DE LA RUTA */
+                href={`/leer?id=${book?.id}`} 
                 className="flex gap-4 bg-white p-4 rounded-3xl shadow-sm border border-brand-gold/5 active:scale-95 transition-transform"
               >
                 <div className="relative w-24 h-36 shrink-0 rounded-xl overflow-hidden shadow-md bg-brand-blue-bg">
@@ -95,7 +89,6 @@ export default function MisLecturasPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {/* BARRA DE PROGRESO */}
                     <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-brand-dark-blue transition-all duration-700 ease-out" 

@@ -56,7 +56,8 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
           <Plus size={16} /> Mi Lista
         </button>
         <button 
-          onClick={() => router.push(`/leer/${book.id}`)}
+          /* AQUÍ ESTÁ EL CAMBIO DE LA RUTA */
+          onClick={() => router.push(`/leer?id=${book.id}`)}
           disabled={!book.published}
           className={`flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg ${
             book.published ? 'bg-brand-dark-blue text-white' : 'bg-gray-400 text-white cursor-not-allowed'
