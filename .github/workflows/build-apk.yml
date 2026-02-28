@@ -39,7 +39,9 @@ jobs:
 
       - name: 7. Compilar el APK (Modo Debug)
         working-directory: ./android
-        run: ./gradlew assembleDebug
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
 
       - name: 8. Entregar el APK listo para descargar
         uses: actions/upload-artifact@v4
