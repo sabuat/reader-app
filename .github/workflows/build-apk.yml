@@ -1,0 +1,45 @@
+name: Compilar APK Android
+
+# Esto hace que se compile automáticamente cada vez que subas código a la rama 'main'
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Usamos un servidor Linux rápido en la nube
+
+    steps:
+      - name: 1. Descargar el código
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # La versión de Node que usa tu proyecto
+
+      - name: 3. Instalar dependencias de NPM
+        run: npm install
+
+      - name: 4. Exportar Next.js (Archivos estáticos)
+        run: npm run build
+
+      - name: 5. Sincronizar Capacitor
+        run: npx cap sync android
+
+      - name: 6. Configurar entorno Java (Requisito de Android)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 7. Compilar el APK (Modo Debug)
+        working-directory: ./android
+        run: ./gradlew assembleDebug
+
+      - name: 8. Entregar el APK listo para descargar
+        uses: actions/upload-artifact@v4
+        with:
+          name: apapacho-app-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

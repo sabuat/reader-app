@@ -25,7 +25,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         
         {!isReadingMode && (
           <header className="fixed top-0 w-full h-16 bg-brand-bg/80 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10">
-            <Link href="/" className="flex items-center active:scale-95 transition-transform">
+            {/* CORRECCIÓN: Ahora el logo apunta a /home */}
+            <Link href="/home" className="flex items-center active:scale-95 transition-transform">
               <Image src="/logo.png" alt="Logo" width={110} height={35} className="object-contain" priority />
             </Link>
             
@@ -39,13 +40,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {isMenuOpen && <SideMenu onClose={() => setIsMenuOpen(false)} />}
         </AnimatePresence>
 
-        <main className={`flex-grow ${isReadingMode ? 'pt-0' : 'pt-16'} pb-24`}>
+        <main className={`flex-grow w-full overflow-x-hidden ${isReadingMode ? 'pt-0' : 'pt-16'} pb-24`}>
           {children}
         </main>
 
         {/* NAVEGACIÓN INFERIOR CONFIGURADA */}
         <nav className="fixed bottom-0 w-full h-20 bg-white/90 backdrop-blur-lg border-t border-brand-gold/10 px-8 flex justify-between items-center z-40 pb-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-          <Link href="/home" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
+          {/* CORRECCIÓN: Ahora revisa si la ruta activa es /home */}
+          <Link href="/home" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/home') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
             <Home size={22} />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
           </Link>

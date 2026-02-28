@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, X } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function ReaderPage() {
   const params = useParams();
@@ -19,6 +20,10 @@ export default function ReaderPage() {
   const [fontSize, setFontSize] = useState('text-lg');
   const [nightMode, setNightMode] = useState(false);
 
+  // NUEVO: Estados para controlar la publicidad
+  const [sessionReads, setSessionReads] = useState(0);
+  const [showAd, setShowAd] = useState(false);
+
   useEffect(() => {
     const savedFontSize = localStorage.getItem('apapacho_fontSize');
     const savedNightMode = localStorage.getItem('apapacho_nightMode') === 'true';
@@ -30,27 +35,24 @@ export default function ReaderPage() {
       setLoading(true);
       
       try {
-        // 1. Validar al usuario activo
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          router.push('/'); // Si no está logueado, lo mandamos al login
+          router.push('/'); 
           return;
         }
         setUserId(user.id);
 
-        // 2. Cargar los capítulos del libro
         const { data: chs } = await supabase
           .from('chapters')
           .select('*')
           .eq('book_id', params.id)
           .order('chapter_number', { ascending: true });
 
-        // 3. Cargar el progreso ESPECÍFICO de este usuario y este libro
         const { data: prog } = await supabase
           .from('reading_progress')
           .select('chapter_number, completed_chapters')
           .eq('book_id', params.id)
-          .eq('user_id', user.id) // <-- AQUÍ FILTRAMOS POR USUARIO
+          .eq('user_id', user.id)
           .maybeSingle();
 
         if (chs) setChapters(chs);
@@ -58,7 +60,7 @@ export default function ReaderPage() {
         if (prog) {
           setCompletedChapters(prog.completed_chapters || []);
           const lastIndex = chs?.findIndex(c => c.chapter_number === prog.chapter_number);
-          if (lastIndex !== -1) setCurrentIdx(lastIndex);
+          if (lastIndex !== undefined && lastIndex !== -1) setCurrentIdx(lastIndex);
         }
       } catch (err) {
         console.error("Error cargando datos:", err);
@@ -77,19 +79,29 @@ export default function ReaderPage() {
     const newCompleted = Array.from(new Set([...completedChapters, currentChapter.chapter_number]));
     
     try {
-      // AQUÍ GUARDAMOS USANDO LA CLAVE COMPUESTA
       const { error } = await supabase.from('reading_progress').upsert({
         user_id: userId,
         book_id: params.id,
         chapter_number: nextChapter.chapter_number,
         completed_chapters: newCompleted,
         last_read_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,book_id' }); // IMPORTANTE: Declarar el onConflict compuesto
+      }, { onConflict: 'user_id,book_id' });
 
       if (error) throw error;
+      
       setCompletedChapters(newCompleted);
       setCurrentIdx(currentIdx + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // LÓGICA DE PUBLICIDAD: Sumamos 1 a la sesión. Si es múltiplo de 2, mostramos anuncio.
+      setSessionReads((prev) => {
+        const newCount = prev + 1;
+        if (newCount % 2 === 0) {
+          setShowAd(true);
+        }
+        return newCount;
+      });
+
     } catch (err) {
       console.error("Error al salvar progreso:", err);
     }
@@ -192,6 +204,41 @@ export default function ReaderPage() {
           )}
         </footer>
       </article>
+
+      {/* PANTALLA DE PUBLICIDAD (Aparece cada 2 capítulos) */}
+      <AnimatePresence>
+        {showAd && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 backdrop-blur-sm"
+          >
+            <div className="bg-white rounded-[2rem] p-6 max-w-sm w-full text-center shadow-2xl">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-bold">Publicidad</span>
+                <button onClick={() => setShowAd(false)} className="p-1 active:scale-90 bg-gray-100 rounded-full">
+                  <X size={16} className="text-gray-500" />
+                </button>
+              </div>
+              
+              {/* Aquí irá el código de AdMob u otro proveedor en el futuro */}
+              <div className="w-full aspect-[4/5] bg-brand-blue-bg border border-brand-gold/20 rounded-xl mb-6 flex flex-col items-center justify-center p-4">
+                <span className="text-brand-dark/30 font-serif italic text-xl mb-2">Tu Anuncio Aquí</span>
+                <span className="text-[10px] text-brand-dark/40 font-bold uppercase tracking-widest text-center">Apoya a los autores viendo esta publicidad</span>
+              </div>
+
+              <button 
+                onClick={() => setShowAd(false)}
+                className="w-full bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all"
+              >
+                Continuar leyendo
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

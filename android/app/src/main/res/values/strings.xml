@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Apapacho</string>
+    <string name="title_activity_main">Apapacho</string>
+    <string name="package_name">com.sabuat.apapacho</string>
+    <string name="custom_url_scheme">com.sabuat.apapacho</string>
+</resources>
