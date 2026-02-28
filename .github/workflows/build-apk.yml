@@ -1,6 +1,5 @@
 name: Compilar APK Android
 
-# Esto hace que se compile automáticamente cada vez que subas código a la rama 'main'
 on:
   push:
     branches:
@@ -8,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Usamos un servidor Linux rápido en la nube
+    runs-on: ubuntu-latest
 
     steps:
       - name: 1. Descargar el código
@@ -17,21 +16,21 @@ jobs:
       - name: 2. Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.0.0' # La versión de Node que usa tu proyecto
+          node-version: '22.x'
 
       - name: 3. Instalar dependencias de NPM
         run: npm install
 
       - name: 4. Exportar Next.js (Archivos estáticos)
         env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://wxdagnvlotoonpbtungx.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4ZGFnbnZsb3Rvb25wYnR1bmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDk1MTMsImV4cCI6MjA4NzI4NTUxM30.gNrVv7Wdlx714A4fkOCxGvUGswhurcXf_E31l7wkFM0"
+          NEXT_PUBLIC_SUPABASE_URL: "PEGA_AQUI_TU_URL"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "PEGA_AQUI_TU_CLAVE"
         run: npm run build
 
       - name: 5. Sincronizar Capacitor
         run: npx cap sync android
 
-      - name: 6. Configurar entorno Java (Requisito de Android)
+      - name: 6. Configurar entorno Java
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
@@ -43,7 +42,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug
 
-      - name: 8. Entregar el APK listo para descargar
+      - name: 8. Entregar el APK
         uses: actions/upload-artifact@v4
         with:
           name: apapacho-app-apk
