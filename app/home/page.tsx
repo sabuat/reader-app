@@ -62,7 +62,7 @@ export default function BookGallery() {
               <img 
                 src={book.cover_url} 
                 alt={book.title} 
-                className={`w-full h-full object-cover ${!book.published ? 'opacity-85' : ''}`} 
+                className={`w-full h-full object-cover ${!book.published ? 'opacity-30' : ''}`} 
               />
             ) : (
               <div className="w-full h-full bg-brand-blue-bg flex items-center justify-center">

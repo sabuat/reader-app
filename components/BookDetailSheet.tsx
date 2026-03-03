@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Plus, BookOpen } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -44,7 +44,7 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
         <div className="relative w-[210px] h-[315px] shrink-0 mb-8 shadow-2xl rounded-md overflow-hidden">
           <img 
             src={book.cover_url} 
-            className={`w-full h-full object-cover transition-opacity duration-300 ${!book.published ? 'opacity-85' : ''}`} 
+            className={`w-full h-full object-cover transition-opacity duration-300 ${!book.published ? 'opacity-30' : ''}`} 
             alt={book.title} 
           />
         </div>
@@ -56,18 +56,16 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
       </div>
 
       <div className="p-6 grid grid-cols-2 gap-4 backdrop-blur-xl bg-white/70 border-t border-brand-gold/10 shrink-0 z-10">
-        <button className="flex items-center justify-center gap-2 bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg">
-          <Plus size={16} /> Mi Lista
+        <button className="flex items-center justify-center bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg text-center">
+          Mi Lista
         </button>
         <button 
-          /* AQUÍ ESTÁ EL CAMBIO DE LA RUTA */
           onClick={() => router.push(`/leer?id=${book.id}`)}
           disabled={!book.published}
-          className={`flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg ${
+          className={`flex items-center justify-center py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg text-center ${
             book.published ? 'bg-brand-dark-blue text-white' : 'bg-gray-400 text-white cursor-not-allowed'
           }`}
         >
-          <BookOpen size={16} /> 
           {hasProgress ? 'Continuar leyendo' : (book.published ? 'Leer ahora' : 'Pronto')}
         </button>
       </div>
