@@ -40,8 +40,12 @@ export default function AuthPage() {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
+    let isMounted = true;
+
+    const checkCurrentSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user && isMounted) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('id')
@@ -49,7 +53,6 @@ export default function AuthPage() {
           .maybeSingle();
 
         if (profile) {
-          // SOLUCIÓN: Leemos dónde estaba antes de que Android recargara la app
           const lastRoute = localStorage.getItem('apapacho_last_route') || '/home';
           router.push(lastRoute);
         } else {
@@ -59,9 +62,20 @@ export default function AuthPage() {
           setView('complete_profile');
         }
       }
+    };
+
+    checkCurrentSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && isMounted) {
+        checkCurrentSession();
+      }
     });
 
-    return () => { authListener.subscription.unsubscribe(); };
+    return () => { 
+      isMounted = false;
+      authListener.subscription.unsubscribe(); 
+    };
   }, [router]);
 
   const isOldEnough = (birthDateString: string) => {
@@ -163,14 +177,20 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9F7] flex flex-col items-center justify-center p-6 relative">
+    <div 
+      className="min-h-[100dvh] bg-[#F9F9F7] flex flex-col items-center overflow-y-auto px-6"
+      style={{ 
+        paddingTop: 'calc(2rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))'
+      }}
+    >
       <motion.img 
         initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         src="/logo-nuevo.png" alt="Apapacho Logo" 
-        className="w-48 object-contain mb-8 drop-shadow-sm" 
+        className="w-48 object-contain mb-8 drop-shadow-sm shrink-0" 
       />
 
-      <div className="w-full max-w-md bg-white p-8 rounded-[2rem] shadow-xl border border-brand-gold/10">
+      <div className="w-full max-w-md bg-white p-8 rounded-[2rem] shadow-xl border border-brand-gold/10 mb-4">
         
         {view !== 'complete_profile' && (
           <div className="flex bg-gray-100 rounded-full p-1 mb-8">
@@ -273,12 +293,17 @@ export default function AuthPage() {
 
       <AnimatePresence>
         {showAvatarModal && (
-          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed inset-0 z-50 bg-[#F9F9F7] flex flex-col p-6">
+          <motion.div 
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} 
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
+            className="fixed inset-0 z-50 bg-[#F9F9F7] flex flex-col p-6"
+            style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
             <div className="flex justify-between items-center mb-8 mt-6">
               <h2 className="text-2xl font-serif italic text-brand-dark">Elige tu Avatar</h2>
               <button type="button" onClick={() => setShowAvatarModal(false)} className="p-2 active:scale-90 bg-white rounded-full shadow-sm"><X size={24} className="text-brand-dark" /></button>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 overflow-y-auto pb-10">
               {AVATARS.map((av) => (
                 <div key={av} onClick={() => { setSelectedAvatar(av); setShowAvatarModal(false); }} className={`relative aspect-square rounded-2xl overflow-hidden cursor-pointer shadow-sm transition-transform active:scale-95 ${selectedAvatar === av ? 'border-4 border-brand-gold' : 'border-2 border-transparent'}`}>
                   <img src={av} alt="Avatar option" className="w-full h-full object-cover bg-brand-blue-bg" />
@@ -293,7 +318,7 @@ export default function AuthPage() {
   );
 }
 
-// Mini componentes
+// Mini componentes (Mantienen estilos originales)
 function AvatarSelector({ selected, onSelect }: { selected: string, onSelect: () => void }) {
   return (
     <div className="flex flex-col items-center mb-6">
@@ -340,7 +365,7 @@ function DividerGoogle({ onClick }: { onClick: () => void }) {
         <span className="flex-shrink-0 mx-4 text-gray-400 text-[10px] uppercase tracking-widest font-bold">O continúa con</span>
         <div className="flex-grow border-t border-gray-200"></div>
       </div>
-      <button type="button" onClick={onClick} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 text-brand-dark py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest active:scale-95 transition-all">
+      <button type="button" onClick={onClick} className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 text-brand-dark py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest active:scale-90 transition-all">
         <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" /> Google
       </button>
     </>

@@ -17,7 +17,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const isReadingMode = pathname?.startsWith('/leer/');
   const showNav = pathname !== '/';
 
-  // SOLUCIÓN: Guardar la última pantalla (excepto el login) para restaurarla si Android duerme la app
   useEffect(() => {
     if (pathname && pathname !== '/') {
       localStorage.setItem('apapacho_last_route', pathname);
@@ -31,7 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-brand-bg text-brand-dark min-h-[100dvh] flex flex-col overflow-x-hidden antialiased">
         
         {showNav && !isReadingMode && (
-          <header className="fixed top-0 w-full h-16 bg-brand-bg/80 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10">
+          <header 
+            className="fixed top-0 w-full bg-brand-bg/80 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10"
+            style={{ 
+              paddingTop: 'env(safe-area-inset-top)', 
+              height: 'calc(4rem + env(safe-area-inset-top))' 
+            }}
+          >
             <Link href="/home" className="flex items-center active:scale-95 transition-transform">
               <Image src="/logo.png" alt="Logo" width={110} height={35} className="object-contain" priority />
             </Link>
@@ -46,12 +51,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {isMenuOpen && <SideMenu onClose={() => setIsMenuOpen(false)} />}
         </AnimatePresence>
 
-        <main className={`flex-grow w-full overflow-x-hidden ${(!showNav || isReadingMode) ? 'pt-0' : 'pt-16'} ${!showNav ? 'pb-0' : 'pb-24'}`}>
+        <main 
+          className="flex-grow w-full overflow-x-hidden"
+          style={{ 
+            paddingTop: (!showNav || isReadingMode) ? 'env(safe-area-inset-top)' : 'calc(4rem + env(safe-area-inset-top))',
+            paddingBottom: !showNav ? 'env(safe-area-inset-bottom)' : 'calc(5rem + env(safe-area-inset-bottom))'
+          }}
+        >
           {children}
         </main>
 
         {showNav && (
-          <nav className="fixed bottom-0 w-full h-20 bg-white/90 backdrop-blur-lg border-t border-brand-gold/10 px-8 flex justify-between items-center z-40 pb-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+          <nav 
+            className="fixed bottom-0 w-full bg-white/90 backdrop-blur-lg border-t border-brand-gold/10 px-8 flex justify-between items-center z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]"
+            style={{ 
+              paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))', 
+              height: 'calc(5rem + env(safe-area-inset-bottom))' 
+            }}
+          >
             <Link href="/home" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/home') ? 'text-brand-dark-blue' : 'text-gray-400'}`}>
               <Home size={22} />
               <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>

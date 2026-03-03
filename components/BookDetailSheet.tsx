@@ -34,8 +34,14 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-brand-bg" />
       </div>
 
-      <div className="p-4 flex justify-between items-center border-b border-brand-gold/10 backdrop-blur-md bg-brand-bg/50 shrink-0 z-10">
-        <button onClick={onClose} className="p-2"><X size={28} /></button>
+      <div 
+        className="flex justify-between items-center border-b border-brand-gold/10 backdrop-blur-md bg-brand-bg/50 shrink-0 z-10"
+        style={{ 
+          paddingTop: 'calc(1rem + env(safe-area-inset-top))', 
+          paddingBottom: '1rem', paddingLeft: '1rem', paddingRight: '1rem' 
+        }}
+      >
+        <button onClick={onClose} className="p-2 active:scale-90 transition-transform"><X size={28} /></button>
         <span className="text-[10px] font-bold tracking-[0.3em] text-brand-gold uppercase">Detalles</span>
         <div className="w-10" />
       </div>
@@ -55,15 +61,21 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
         </div>
       </div>
 
-      <div className="p-6 grid grid-cols-2 gap-4 backdrop-blur-xl bg-white/70 border-t border-brand-gold/10 shrink-0 z-10">
-        <button className="flex items-center justify-center bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg text-center">
+      <div 
+        className="grid grid-cols-2 gap-4 backdrop-blur-xl bg-white/70 border-t border-brand-gold/10 shrink-0 z-10"
+        style={{ 
+          paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))', 
+          paddingTop: '1.5rem', paddingLeft: '1.5rem', paddingRight: '1.5rem' 
+        }}
+      >
+        <button className="flex items-center justify-center bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg text-center active:scale-95 transition-transform">
           Mi Lista
         </button>
         <button 
           onClick={() => router.push(`/leer?id=${book.id}`)}
           disabled={!book.published}
-          className={`flex items-center justify-center py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg text-center ${
-            book.published ? 'bg-brand-dark-blue text-white' : 'bg-gray-400 text-white cursor-not-allowed'
+          className={`flex items-center justify-center py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg text-center transition-all ${
+            book.published ? 'bg-brand-dark-blue text-white active:scale-95' : 'bg-gray-400 text-white cursor-not-allowed'
           }`}
         >
           {hasProgress ? 'Continuar leyendo' : (book.published ? 'Leer ahora' : 'Pronto')}
