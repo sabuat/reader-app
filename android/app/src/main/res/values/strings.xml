@@ -4,4 +4,5 @@
     <string name="title_activity_main">Apapacho</string>
     <string name="package_name">com.sabuat.apapacho</string>
     <string name="custom_url_scheme">com.sabuat.apapacho</string>
+    <string name="server_client_id">324709863952-ccc9aukqh0594adthg76d9aak00iu4bh.apps.googleusercontent.com</string>
 </resources>
