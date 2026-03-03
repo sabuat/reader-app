@@ -14,7 +14,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
 
-  const isReadingMode = pathname?.startsWith('/leer/');
+  // Ajuste: Detecta el modo lectura si la ruta comienza con /leer (sin importar parámetros de URL)
+  const isReadingMode = pathname?.startsWith('/leer'); 
   const showNav = pathname !== '/';
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body className="bg-brand-bg text-brand-dark min-h-[100dvh] flex flex-col overflow-x-hidden antialiased">
         
+        {/* Ajuste: Se oculta el header si es modo lectura */}
         {showNav && !isReadingMode && (
           <header 
             className="fixed top-0 w-full bg-brand-bg/80 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10"
@@ -54,14 +56,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main 
           className="flex-grow w-full overflow-x-hidden"
           style={{ 
+            // Ajuste: Elimina paddings adicionales en modo lectura para usar toda la pantalla
             paddingTop: (!showNav || isReadingMode) ? 'env(safe-area-inset-top)' : 'calc(4rem + env(safe-area-inset-top))',
-            paddingBottom: !showNav ? 'env(safe-area-inset-bottom)' : 'calc(5rem + env(safe-area-inset-bottom))'
+            paddingBottom: (!showNav || isReadingMode) ? 'env(safe-area-inset-bottom)' : 'calc(5rem + env(safe-area-inset-bottom))'
           }}
         >
           {children}
         </main>
 
-        {showNav && (
+        {/* Ajuste: Se oculta el nav inferior si es modo lectura */}
+        {showNav && !isReadingMode && (
           <nav 
             className="fixed bottom-0 w-full bg-white/90 backdrop-blur-lg border-t border-brand-gold/10 px-8 flex justify-between items-center z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]"
             style={{ 

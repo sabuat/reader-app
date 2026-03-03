@@ -50,6 +50,11 @@ export default function SideMenu({ onClose }: { onClose: () => void }) {
             <span className="font-bold text-sm uppercase tracking-widest">Sign Out</span>
           </button>
         </div>
+        <div className="mt-auto pb-4 text-center">
+          <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+            Apapacho Reader - Versión 1.6.26
+          </span>
+        </div>
       </motion.div>
     </div>
   );
