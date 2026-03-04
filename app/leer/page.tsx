@@ -6,10 +6,11 @@ import { ChevronLeft, ChevronRight, BookOpen, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown'; // <-- IMPORTAMOS LA LIBRERÍA
 
 function ReaderContent() {
   const searchParams = useSearchParams();
-  const id = searchParams.get('id'); // Sacamos el ID de la URL
+  const id = searchParams.get('id');
   const router = useRouter();
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -129,8 +130,11 @@ function ReaderContent() {
   const hasPrev = currentIdx > 0;
 
   return (
-    <div className={`min-h-screen flex flex-col antialiased transition-colors duration-500 ${nightMode ? 'bg-[#121212]' : 'bg-[#F9F9F7]'}`}>
-      <nav className={`p-6 shrink-0 flex justify-between items-center sticky top-0 backdrop-blur-md z-20 transition-colors duration-500 ${nightMode ? 'bg-[#121212]/80' : 'bg-[#F9F9F7]/80'}`}>
+    <div className={`min-h-[100dvh] flex flex-col antialiased transition-colors duration-500 ${nightMode ? 'bg-[#121212]' : 'bg-[#F9F9F7]'}`}>
+      <nav 
+        className={`px-6 pb-6 shrink-0 flex justify-between items-center sticky top-0 backdrop-blur-md z-20 transition-colors duration-500 ${nightMode ? 'bg-[#121212]/80' : 'bg-[#F9F9F7]/80'}`}
+        style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top))' }}
+      >
         <Link href="/home" className="flex items-center gap-2 text-brand-gold active:scale-90 transition-transform">
           <ChevronLeft size={20} />
           <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Cerrar</span>
@@ -153,13 +157,26 @@ function ReaderContent() {
           <div className="h-px bg-brand-gold/30 w-12 mx-auto mt-10" />
         </header>
 
-        <div className="prose prose-stone">
-          <p className={`font-texto leading-[1.25] whitespace-pre-line text-justify mb-20 transition-all duration-500 ${fontSize} ${nightMode ? 'text-[#D4AF37]/90' : 'text-brand-dark/90'}`}>
+        {/* CONTENEDOR MARKDOWN AJUSTADO */}
+        <div className={`font-texto leading-[2] text-justify mb-20 transition-all duration-500 ${fontSize} ${nightMode ? 'text-[#D4AF37]/90' : 'text-brand-dark/90'}`}>
+          <ReactMarkdown
+            components={{
+              // Forzamos a que cada párrafo creado por markdown tenga el espaciado correcto
+              p: ({node, ...props}) => <p className="mb-6 whitespace-pre-line" {...props} />,
+              // Damos estilo a las negritas
+              strong: ({node, ...props}) => <strong className="font-bold text-brand-dark-blue dark:text-brand-gold" {...props} />,
+              // Damos estilo a las cursivas
+              em: ({node, ...props}) => <em className="italic" {...props} />
+            }}
+          >
             {currentChapter.content}
-          </p>
+          </ReactMarkdown>
         </div>
 
-        <footer className="mt-20 pt-10 border-t border-brand-gold/10 flex justify-between items-center">
+        <footer 
+          className="mt-20 pt-10 border-t border-brand-gold/10 flex justify-between items-center"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
           {hasPrev ? (
             <button onClick={handlePrevChapter} className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-black text-black hover:text-brand-gold'}`}>
               <ChevronLeft size={12} className="inline mr-1 mb-0.5" /> Anterior
@@ -214,7 +231,6 @@ function ReaderContent() {
   );
 }
 
-// ESTE WRAPPER ES OBLIGATORIO EN NEXT.JS PARA USAR SEARCHPARAMS
 export default function ReaderPage() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#F9F9F7]"><div className="w-8 h-8 border-4 border-brand-gold border-t-transparent rounded-full animate-spin" /></div>}>
