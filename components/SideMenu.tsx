@@ -59,7 +59,7 @@ export default function SideMenu({ onClose }: { onClose: () => void }) {
         </div>
         <div className="mt-auto pb-4 text-center shrink-0">
           <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
-            Apapacho Reader - Versión 1.6.28
+            Apapacho Reader - Versión 1.6.30
           </span>
         </div>
       </motion.div>

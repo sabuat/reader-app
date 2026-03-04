@@ -79,7 +79,6 @@ export default function BookGallery() {
       
       {/* HEADER CON BOTÓN DE FILTRO REDISEÑADO */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-serif italic text-brand-dark">Explorar</h1>
         <button 
           onClick={() => setShowFilterPanel(true)}
           className={`relative p-3 rounded-full transition-colors ${hasActiveFilters ? 'bg-brand-dark-blue/10' : 'bg-transparent active:bg-brand-gold/5'}`}
