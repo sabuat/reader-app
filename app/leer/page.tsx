@@ -2,11 +2,11 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, ChevronRight, BookOpen, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, X, Volume2, Play, Pause, Square } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import ReactMarkdown from 'react-markdown'; // <-- IMPORTAMOS LA LIBRERÍA
+import ReactMarkdown from 'react-markdown';
 
 function ReaderContent() {
   const searchParams = useSearchParams();
@@ -24,6 +24,10 @@ function ReaderContent() {
 
   const [sessionReads, setSessionReads] = useState(0);
   const [showAd, setShowAd] = useState(false);
+
+  // Estados para el reproductor de voz (Accesibilidad)
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     const savedFontSize = localStorage.getItem('apapacho_fontSize');
@@ -70,7 +74,62 @@ function ReaderContent() {
       }
     }
     loadData();
+
+    // Detener la voz si el usuario sale del lector de golpe
+    return () => {
+      window.speechSynthesis.cancel();
+    };
   }, [id, router]);
+
+  // Detener la voz cuando cambiamos de capítulo
+  useEffect(() => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setIsPaused(false);
+  }, [currentIdx]);
+
+  // --- FUNCIONES DE ACCESIBILIDAD (VOZ) ---
+  const handleSpeak = () => {
+    if (!chapters[currentIdx]?.content) return;
+    
+    // Si estaba en pausa, solo reanudamos
+    if (isPaused) {
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+      setIsSpeaking(true);
+      return;
+    }
+
+    // Limpiamos el texto de códigos markdown (*, _, #) para que la voz no los lea
+    const cleanText = chapters[currentIdx].content.replace(/[*#_>]/g, '');
+    
+    window.speechSynthesis.cancel(); // Cancelamos cualquier voz previa por seguridad
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'es-ES'; // Idioma por defecto. 
+    utterance.rate = 0.95; // Una velocidad ligeramente más relajada para lectura
+    
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setIsPaused(false);
+    };
+    
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+    setIsPaused(false);
+  };
+
+  const handlePause = () => {
+    window.speechSynthesis.pause();
+    setIsPaused(true);
+    setIsSpeaking(false);
+  };
+
+  const handleStop = () => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setIsPaused(false);
+  };
+  // -----------------------------------------
 
   const handleNextChapter = async () => {
     if (currentIdx >= chapters.length - 1 || !userId || !id) return;
@@ -154,18 +213,42 @@ function ReaderContent() {
           <h1 className={`text-3xl font-serif italic leading-tight transition-colors duration-500 ${nightMode ? 'text-brand-gold' : 'text-brand-dark'}`}>
             {currentChapter.title}
           </h1>
-          <div className="h-px bg-brand-gold/30 w-12 mx-auto mt-10" />
+
+          {/* REPRODUCTOR DE VOZ (ACCESIBILIDAD) */}
+          <div className="flex justify-center items-center mt-8">
+            {!isSpeaking && !isPaused ? (
+              <button 
+                onClick={handleSpeak} 
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full border text-[10px] uppercase font-bold tracking-widest active:scale-95 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-brand-dark-blue text-brand-dark-blue'}`}
+              >
+                <Volume2 size={16} /> Escuchar Capítulo
+              </button>
+            ) : (
+              <div className={`flex items-center gap-2 px-2 py-1.5 rounded-full border shadow-sm ${nightMode ? 'border-brand-gold/30 bg-brand-dark/50' : 'border-brand-dark-blue/20 bg-white'}`}>
+                {isPaused ? (
+                  <button onClick={handleSpeak} className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold text-brand-dark' : 'bg-brand-dark-blue text-white'}`}>
+                    <Play size={14} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button onClick={handlePause} className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold text-brand-dark' : 'bg-brand-dark-blue text-white'}`}>
+                    <Pause size={14} fill="currentColor" />
+                  </button>
+                )}
+                <button onClick={handleStop} className="p-2.5 rounded-full text-brand-red active:scale-90 transition-transform">
+                  <Square size={14} fill="currentColor" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="h-px bg-brand-gold/30 w-12 mx-auto mt-8" />
         </header>
 
-        {/* CONTENEDOR MARKDOWN AJUSTADO */}
-        <div className={`font-texto leading-[2] text-justify mb-20 transition-all duration-500 ${fontSize} ${nightMode ? 'text-[#D4AF37]/90' : 'text-brand-dark/90'}`}>
+        <div className={`font-texto leading-[1.25] text-justify mb-20 transition-all duration-500 ${fontSize} ${nightMode ? 'text-[#D4AF37]/90' : 'text-brand-dark/90'}`}>
           <ReactMarkdown
             components={{
-              // Forzamos a que cada párrafo creado por markdown tenga el espaciado correcto
               p: ({node, ...props}) => <p className="mb-6 whitespace-pre-line" {...props} />,
-              // Damos estilo a las negritas
               strong: ({node, ...props}) => <strong className="font-bold text-brand-dark-blue dark:text-brand-gold" {...props} />,
-              // Damos estilo a las cursivas
               em: ({node, ...props}) => <em className="italic" {...props} />
             }}
           >

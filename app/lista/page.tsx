@@ -6,7 +6,6 @@ import { BookOpen, X, Filter, FilterX } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import BookDetailSheet from '@/components/BookDetailSheet';
 
-// Listas estáticas sacadas de tu base de datos (ENUMs)
 const GENRES = [
   'Cuentos', 'Ensayos', 'Literatura Fantástica', 
   'Literatura Romántica', 'Microrelatos', 'Novela', 
@@ -19,7 +18,6 @@ export default function MiListaPage() {
   const [loading, setLoading] = useState(true);
   const [selectedBook, setSelectedBook] = useState<any>(null);
 
-  // Estados para los filtros y el panel
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<string>('');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
@@ -27,6 +25,15 @@ export default function MiListaPage() {
 
   useEffect(() => {
     async function fetchMyList() {
+      // 1. Identificamos qué usuario está usando la app
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // 2. Buscamos SOLO la lista que coincida con ese usuario
       const { data } = await supabase
         .from('my_list')
         .select(`
@@ -34,6 +41,7 @@ export default function MiListaPage() {
           book_id,
           books (*) 
         `) 
+        .eq('user_id', user.id) // <-- ESTE ES EL FILTRO QUE FALTABA
         .order('created_at', { ascending: false });
 
       if (data) setSavedBooks(data);
@@ -42,13 +50,11 @@ export default function MiListaPage() {
     fetchMyList();
   }, []);
 
-  // 1. Extraemos los autores únicos de los libros guardados para el filtro
   const authors = Array.from(new Set(savedBooks.map((item) => {
     const book = Array.isArray(item.books) ? item.books[0] : item.books;
     return book?.author;
   }).filter(Boolean))) as string[];
 
-  // 2. Aplicamos los filtros a la lista antes de mostrarla
   const filteredBooks = savedBooks.filter((item) => {
     const book = Array.isArray(item.books) ? item.books[0] : item.books;
     if (!book) return false;
@@ -68,7 +74,6 @@ export default function MiListaPage() {
     <div className="min-h-[100dvh] bg-brand-bg px-6 pb-24 overflow-x-hidden relative">
       <header className="pt-10 pb-6 border-b border-brand-gold/10 mb-6 flex justify-between items-end">
         <h1 className="text-3xl font-serif italic text-brand-dark">Mi Lista</h1>
-        {/* BOTÓN DE FILTRO REDISEÑADO */}
         <button 
           onClick={() => setShowFilterPanel(true)}
           className={`relative p-3 rounded-full transition-colors ${hasActiveFilters ? 'bg-brand-dark-blue/10' : 'bg-transparent active:bg-brand-gold/5'}`}
@@ -80,7 +85,6 @@ export default function MiListaPage() {
         </button>
       </header>
 
-      {/* RESULTADOS LIMPIOS (SIN ETIQUETAS DE IDIOMA) */}
       {filteredBooks.length > 0 ? (
         <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 items-start">
           {filteredBooks.map((item) => {
@@ -93,7 +97,7 @@ export default function MiListaPage() {
                 className="relative aspect-[5/8] rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform block bg-brand-blue-bg border border-brand-gold/5 cursor-pointer group"
               >
                 {book.cover_url ? (
-                  <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
+                  <img src={book.cover_url} alt={book.title} className={`w-full h-full object-cover ${!book.published ? 'opacity-[0.45]' : ''}`} />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <BookOpen className="text-brand-dark/20" size={24} />
@@ -105,25 +109,22 @@ export default function MiListaPage() {
         </div>
       ) : (
         <div className="text-center py-20">
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-dark/40 mb-2">No hay resultados</p>
-          <p className="text-[10px] text-brand-dark/30">Intenta cambiar los filtros seleccionados.</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-dark/40 mb-2">Lista vacía</p>
+          <p className="text-[10px] text-brand-dark/30">Los libros que guardes aparecerán aquí.</p>
         </div>
       )}
 
-      {/* ANIME PRESENCE PARA MODALES Y PANEL */}
       <AnimatePresence>
-        
-        {/* PANEL LATERAL DE FILTROS (SLIDE) */}
         {showFilterPanel && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
-            onClick={() => setShowFilterPanel(false)} // Cierra al tocar el overlay
+            onClick={() => setShowFilterPanel(false)} 
             className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm"
           >
             <motion.div 
               initial={{ x: '100%' }} animate={{ x: '0%' }} exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              onClick={(e) => e.stopPropagation()} // Evita cerrar al tocar dentro
+              onClick={(e) => e.stopPropagation()}
               className="absolute inset-y-0 right-0 w-[85%] max-w-sm bg-brand-bg shadow-2xl flex flex-col border-l border-brand-gold/10"
               style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
@@ -134,10 +135,7 @@ export default function MiListaPage() {
                 </button>
               </div>
 
-              {/* CONTENIDO DEL PANEL CON SCROLL INTERNO */}
               <div className="flex-grow overflow-y-auto p-6 space-y-8 scrollbar-hide">
-                
-                {/* Género */}
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Género</label>
                   <select value={selectedGenre} onChange={(e) => setSelectedGenre(e.target.value)}
@@ -148,7 +146,6 @@ export default function MiListaPage() {
                   </select>
                 </div>
 
-                {/* Idioma */}
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Idioma</label>
                   <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)}
@@ -159,7 +156,6 @@ export default function MiListaPage() {
                   </select>
                 </div>
 
-                {/* Autor */}
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Autor</label>
                   <select value={selectedAuthor} onChange={(e) => setSelectedAuthor(e.target.value)}
@@ -169,10 +165,8 @@ export default function MiListaPage() {
                     {authors.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
                 </div>
-
               </div>
 
-              {/* PIE DEL PANEL FIJO CON BOTONES */}
               <div className="p-6 border-t border-brand-gold/5 shrink-0 space-y-3">
                 <button 
                   onClick={() => setShowFilterPanel(false)}
@@ -197,11 +191,14 @@ export default function MiListaPage() {
           </motion.div>
         )}
 
-        {/* MODAL DETALLES DEL LIBRO */}
         {selectedBook && (
           <BookDetailSheet 
             book={selectedBook} 
-            onClose={() => setSelectedBook(null)} 
+            onClose={() => {
+              setSelectedBook(null);
+              // Recargamos la página discretamente al cerrar por si el usuario quitó el libro de la lista
+              window.location.reload(); 
+            }} 
           />
         )}
       </AnimatePresence>

@@ -13,6 +13,15 @@ export default function MisLecturasPage() {
     async function fetchMyReadings() {
       setLoading(true);
       try {
+        // 1. Identificamos qué usuario está usando la app
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        // 2. Buscamos el progreso de lectura SOLO de ese usuario
         const { data, error } = await supabase
           .from('reading_progress')
           .select(`
@@ -28,6 +37,7 @@ export default function MisLecturasPage() {
               chapters
             )
           `)
+          .eq('user_id', user.id) // <-- AQUÍ ESTÁ EL CANDADO DE SEGURIDAD
           .order('last_read_at', { ascending: false });
 
         if (error) throw error;
@@ -48,44 +58,49 @@ export default function MisLecturasPage() {
   );
 
   return (
-    <div className="min-h-screen bg-brand-bg px-6 pb-20">
-      <header className="pt-8 pb-6 border-b border-brand-gold/10 mb-8">
-        <span className="text-brand-gold font-bold tracking-[0.2em] text-[10px] uppercase">
-          Tu Progreso
-        </span>
+    <div className="min-h-[100dvh] bg-brand-bg px-6 pb-24 overflow-x-hidden">
+      <header className="pt-10 pb-6 border-b border-brand-gold/10 mb-6">
         <h1 className="text-3xl font-serif italic text-brand-dark">Mis Lecturas</h1>
       </header>
 
       {readings.length === 0 ? (
-        <div className="py-20 text-center opacity-40">
-          <BookOpen size={48} className="mx-auto mb-4" />
-          <p className="text-sm italic text-brand-dark">Aún no tienes libros en curso.</p>
+        <div className="text-center py-20">
+          <Clock className="mx-auto text-brand-dark/20 mb-4" size={32} />
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-dark/40 mb-2">Aún no hay lecturas</p>
+          <p className="text-[10px] text-brand-dark/30">Los libros que comiences a leer aparecerán aquí.</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-4">
           {readings.map((item) => {
+            // Extraemos los datos del libro correctamente
             const book = Array.isArray(item.books) ? item.books[0] : item.books;
-            const totalChapters = book?.chapters || 0;
-            const completedCount = item.completed_chapters?.length || 0;
-            const progressPercent = totalChapters > 0 
-              ? Math.min(Math.round((completedCount / totalChapters) * 100), 100)
-              : 0;
+            if (!book) return null;
+
+            // Calculamos el porcentaje de lectura de forma segura
+            const totalChapters = book.chapters || 1; 
+            const completedCount = item.completed_chapters ? item.completed_chapters.length : 0;
+            const progressPercent = Math.min(Math.round((completedCount / totalChapters) * 100), 100);
 
             return (
               <Link 
-                key={book?.id} 
-                /* AQUÍ ESTÁ EL CAMBIO DE LA RUTA */
-                href={`/leer?id=${book?.id}`} 
-                className="flex gap-4 bg-white p-4 rounded-3xl shadow-sm border border-brand-gold/5 active:scale-95 transition-transform"
+                href={`/leer?id=${book.id}`}
+                key={item.book_id} 
+                className="flex gap-4 p-4 rounded-xl bg-white shadow-sm border border-brand-gold/10 active:scale-95 transition-transform"
               >
-                <div className="relative w-24 h-36 shrink-0 rounded-xl overflow-hidden shadow-md bg-brand-blue-bg">
-                  <img src={book?.cover_url} alt={book?.title} className="w-full h-full object-cover" />
+                <div className="relative w-16 aspect-[5/8] shrink-0 rounded overflow-hidden bg-brand-blue-bg">
+                  {book.cover_url ? (
+                    <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <BookOpen className="text-brand-dark/20" size={16} />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex flex-col justify-between py-1 flex-grow">
                   <div>
-                    <h3 className="font-serif italic text-lg text-brand-dark leading-tight mb-1">{book?.title}</h3>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-gold">{book?.author}</p>
+                    <h3 className="font-serif italic text-lg text-brand-dark leading-tight mb-1">{book.title}</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-gold">{book.author}</p>
                   </div>
 
                   <div className="space-y-3">

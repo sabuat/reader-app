@@ -9,26 +9,56 @@ import { supabase } from '@/lib/supabase';
 export default function BookDetailSheet({ book, onClose }: { book: any, onClose: () => void }) {
   const router = useRouter();
   const [hasProgress, setHasProgress] = useState(false);
+  const [isInList, setIsInList] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function checkProgress() {
-      const { data } = await supabase
+    async function checkData() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+
+      // Revisamos si el usuario ya empezó a leer este libro
+      const { data: prog } = await supabase
         .from('reading_progress')
         .select('id')
         .eq('book_id', book.id)
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
       
-      if (data) setHasProgress(true);
+      if (prog) setHasProgress(true);
+
+      // Revisamos si el usuario ya tiene este libro en Mi Lista
+      const { data: listData } = await supabase
+        .from('my_list')
+        .select('id')
+        .eq('book_id', book.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (listData) setIsInList(true);
     }
-    checkProgress();
+    checkData();
   }, [book.id]);
+
+  // Función para agregar/quitar de Mi Lista
+  const toggleList = async () => {
+    if (!userId) return;
+
+    if (isInList) {
+      await supabase.from('my_list').delete().eq('book_id', book.id).eq('user_id', userId);
+      setIsInList(false);
+    } else {
+      await supabase.from('my_list').insert({ book_id: book.id, user_id: userId });
+      setIsInList(true);
+    }
+  };
 
   return (
     <motion.div 
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
       className="fixed inset-0 z-50 bg-brand-bg flex flex-col overflow-hidden"
     >
-      {/* Fondo ambiental */}
       <div className="absolute inset-0 h-1/2 overflow-hidden pointer-events-none">
         <img src={book.cover_url} className="w-full h-full object-cover scale-150 blur-[80px] opacity-30" alt="" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-brand-bg" />
@@ -48,12 +78,7 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
 
       <div className="flex-grow overflow-y-auto z-10 relative p-6 flex flex-col items-center">
         <div className="relative w-[210px] h-[315px] shrink-0 mb-8 shadow-2xl rounded-md overflow-hidden">
-          <img 
-            src={book.cover_url} 
-            // AQUÍ REMOVIMOS LA CONDICIÓN DE OPACIDAD. AHORA SIEMPRE SE VERÁ AL 100%
-            className="w-full h-full object-cover transition-opacity duration-300" 
-            alt={book.title} 
-          />
+          <img src={book.cover_url} className="w-full h-full object-cover transition-opacity duration-300" alt={book.title} />
         </div>
         <h2 className="text-3xl font-serif italic text-brand-gold text-center mb-2">{book.title}</h2>
         <p className="text-xs font-texto uppercase tracking-[0.3em] text-brand-dark/60 mb-8">{book.author}</p>
@@ -69,8 +94,13 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
           paddingTop: '1.5rem', paddingLeft: '1.5rem', paddingRight: '1.5rem' 
         }}
       >
-        <button className="flex items-center justify-center bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg text-center active:scale-95 transition-transform">
-          Mi Lista
+        <button 
+          onClick={toggleList}
+          className={`flex items-center justify-center py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest shadow-lg text-center active:scale-95 transition-transform ${
+            isInList ? 'bg-red-50 text-brand-red border border-red-100' : 'bg-brand-gold text-white'
+          }`}
+        >
+          {isInList ? '- Quitar' : '+ Mi Lista'}
         </button>
         <button 
           onClick={() => router.push(`/leer?id=${book.id}`)}
@@ -79,7 +109,7 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
             book.published ? 'bg-brand-dark-blue text-white active:scale-95' : 'bg-gray-400 text-white cursor-not-allowed'
           }`}
         >
-          {hasProgress ? 'Continuar leyendo' : (book.published ? 'Leer ahora' : 'Pronto')}
+          {hasProgress ? 'Continuar' : (book.published ? 'Leer ahora' : 'Pronto')}
         </button>
       </div>
     </motion.div>
