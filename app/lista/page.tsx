@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BookOpen, FilterX } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { BookOpen, X, Filter, FilterX } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import BookDetailSheet from '@/components/BookDetailSheet';
 
 // Listas estáticas sacadas de tu base de datos (ENUMs)
@@ -19,7 +19,8 @@ export default function MiListaPage() {
   const [loading, setLoading] = useState(true);
   const [selectedBook, setSelectedBook] = useState<any>(null);
 
-  // Estados para los filtros
+  // Estados para los filtros y el panel
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<string>('');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [selectedAuthor, setSelectedAuthor] = useState<string>('');
@@ -64,56 +65,22 @@ export default function MiListaPage() {
   if (loading) return <div className="p-20 text-center font-bold text-[11px] uppercase tracking-widest text-brand-gold">Cargando...</div>;
 
   return (
-    <div className="min-h-[100dvh] bg-brand-bg px-6 pb-24 overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-brand-bg px-6 pb-24 overflow-x-hidden relative">
       <header className="pt-10 pb-6 border-b border-brand-gold/10 mb-6 flex justify-between items-end">
         <h1 className="text-3xl font-serif italic text-brand-dark">Mi Lista</h1>
+        {/* BOTÓN DE FILTRO REDISEÑADO */}
+        <button 
+          onClick={() => setShowFilterPanel(true)}
+          className={`relative p-3 rounded-full transition-colors ${hasActiveFilters ? 'bg-brand-dark-blue/10' : 'bg-transparent active:bg-brand-gold/5'}`}
+        >
+          <Filter size={22} className="text-brand-dark-blue" />
+          {hasActiveFilters && (
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-brand-gold rounded-full border-2 border-brand-bg"></span>
+          )}
+        </button>
       </header>
 
-      {/* BARRA DE FILTROS DESLIZABLE */}
-      <div className="flex gap-2 overflow-x-auto pb-4 mb-4 -mx-6 px-6 scrollbar-hide snap-x">
-        <select
-          value={selectedGenre}
-          onChange={(e) => setSelectedGenre(e.target.value)}
-          className="snap-start bg-white border border-brand-gold/20 text-brand-dark text-[10px] font-bold uppercase tracking-widest rounded-full px-4 py-2.5 outline-none focus:border-brand-gold shrink-0 appearance-none shadow-sm"
-        >
-          <option value="">Género: Todos</option>
-          {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-        </select>
-
-        <select
-          value={selectedLanguage}
-          onChange={(e) => setSelectedLanguage(e.target.value)}
-          className="snap-start bg-white border border-brand-gold/20 text-brand-dark text-[10px] font-bold uppercase tracking-widest rounded-full px-4 py-2.5 outline-none focus:border-brand-gold shrink-0 appearance-none shadow-sm"
-        >
-          <option value="">Idioma: Todos</option>
-          {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
-        </select>
-
-        <select
-          value={selectedAuthor}
-          onChange={(e) => setSelectedAuthor(e.target.value)}
-          className="snap-start bg-white border border-brand-gold/20 text-brand-dark text-[10px] font-bold uppercase tracking-widest rounded-full px-4 py-2.5 outline-none focus:border-brand-gold shrink-0 appearance-none shadow-sm"
-        >
-          <option value="">Autor: Todos</option>
-          {authors.map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
-
-        {/* Botón para limpiar filtros si hay alguno activo */}
-        {hasActiveFilters && (
-          <button 
-            onClick={() => {
-              setSelectedGenre('');
-              setSelectedLanguage('');
-              setSelectedAuthor('');
-            }}
-            className="snap-start flex items-center justify-center bg-red-50 text-brand-red border border-red-100 rounded-full px-4 py-2.5 shrink-0 active:scale-95 transition-transform"
-          >
-            <FilterX size={14} />
-          </button>
-        )}
-      </div>
-
-      {/* RESULTADOS */}
+      {/* RESULTADOS LIMPIOS (SIN ETIQUETAS DE IDIOMA) */}
       {filteredBooks.length > 0 ? (
         <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 items-start">
           {filteredBooks.map((item) => {
@@ -132,12 +99,6 @@ export default function MiListaPage() {
                     <BookOpen className="text-brand-dark/20" size={24} />
                   </div>
                 )}
-                {/* Etiqueta de idioma en la esquina del libro (Opcional, pero se ve muy pro) */}
-                {book.language && (
-                  <div className="absolute top-1 right-1 bg-black/60 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase">
-                    {book.language}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -149,7 +110,94 @@ export default function MiListaPage() {
         </div>
       )}
 
+      {/* ANIME PRESENCE PARA MODALES Y PANEL */}
       <AnimatePresence>
+        
+        {/* PANEL LATERAL DE FILTROS (SLIDE) */}
+        {showFilterPanel && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
+            onClick={() => setShowFilterPanel(false)} // Cierra al tocar el overlay
+            className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ x: '100%' }} animate={{ x: '0%' }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              onClick={(e) => e.stopPropagation()} // Evita cerrar al tocar dentro
+              className="absolute inset-y-0 right-0 w-[85%] max-w-sm bg-brand-bg shadow-2xl flex flex-col border-l border-brand-gold/10"
+              style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
+              <div className="p-6 flex justify-between items-center border-b border-brand-gold/5 shrink-0">
+                <h2 className="text-2xl font-serif italic text-brand-dark-blue">Filtros</h2>
+                <button onClick={() => setShowFilterPanel(false)} className="p-2 active:scale-90 transition-transform">
+                  <X size={26} className="text-brand-dark-blue" />
+                </button>
+              </div>
+
+              {/* CONTENIDO DEL PANEL CON SCROLL INTERNO */}
+              <div className="flex-grow overflow-y-auto p-6 space-y-8 scrollbar-hide">
+                
+                {/* Género */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Género</label>
+                  <select value={selectedGenre} onChange={(e) => setSelectedGenre(e.target.value)}
+                    className="w-full bg-white border border-brand-gold/20 text-brand-dark-blue text-xs font-bold uppercase tracking-widest rounded-full px-5 py-3.5 outline-none focus:border-brand-dark-blue transition-colors appearance-none shadow-sm"
+                  >
+                    <option value="">Todos los géneros</option>
+                    {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+
+                {/* Idioma */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Idioma</label>
+                  <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)}
+                    className="w-full bg-white border border-brand-gold/20 text-brand-dark-blue text-xs font-bold uppercase tracking-widest rounded-full px-5 py-3.5 outline-none focus:border-brand-dark-blue transition-colors appearance-none shadow-sm"
+                  >
+                    <option value="">Todos los idiomas</option>
+                    {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+
+                {/* Autor */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Autor</label>
+                  <select value={selectedAuthor} onChange={(e) => setSelectedAuthor(e.target.value)}
+                    className="w-full bg-white border border-brand-gold/20 text-brand-dark-blue text-xs font-bold uppercase tracking-widest rounded-full px-5 py-3.5 outline-none focus:border-brand-dark-blue transition-colors appearance-none shadow-sm"
+                  >
+                    <option value="">Todos los autores</option>
+                    {authors.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+
+              </div>
+
+              {/* PIE DEL PANEL FIJO CON BOTONES */}
+              <div className="p-6 border-t border-brand-gold/5 shrink-0 space-y-3">
+                <button 
+                  onClick={() => setShowFilterPanel(false)}
+                  className="w-full bg-brand-dark-blue text-white py-4 rounded-full font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-brand-dark-blue/20"
+                >
+                  Aplicar Filtros
+                </button>
+                {hasActiveFilters && (
+                  <button 
+                    onClick={() => {
+                      setSelectedGenre('');
+                      setSelectedLanguage('');
+                      setSelectedAuthor('');
+                    }}
+                    className="w-full flex items-center justify-center gap-2.5 bg-red-50 text-brand-red border border-red-100 py-4 rounded-full font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-sm"
+                  >
+                    <FilterX size={16} /> Limpiar Filtros
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* MODAL DETALLES DEL LIBRO */}
         {selectedBook && (
           <BookDetailSheet 
             book={selectedBook} 
