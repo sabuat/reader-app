@@ -1,9 +1,17 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BookOpen, X } from 'lucide-react';
+import { BookOpen, X, FilterX } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import BookDetailSheet from '@/components/BookDetailSheet';
+
+// Listas estáticas sacadas de tu base de datos (ENUMs)
+const GENRES = [
+  'Cuentos', 'Ensayos', 'Literatura Fantástica', 
+  'Literatura Romántica', 'Microrelatos', 'Novela', 
+  'Novela Corta', 'Poesia'
+];
+const LANGUAGES = ['EN', 'ES', 'IT', 'PT'];
 
 export default function BookGallery() {
   const [books, setBooks] = useState<any[]>([]);
@@ -13,20 +21,25 @@ export default function BookGallery() {
   const [newReleaseBook, setNewReleaseBook] = useState<any>(null);
   const [showNewModal, setShowNewModal] = useState(false);
 
+  // Estados para los filtros
+  const [selectedGenre, setSelectedGenre] = useState<string>('');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('');
+  const [selectedAuthor, setSelectedAuthor] = useState<string>('');
+
   useEffect(() => {
     async function fetchBooks() {
       const { data } = await supabase
         .from('books')
         .select('*')
-        .order('published', { ascending: false });
+        .order('published', { ascending: false })
+        .order('identificador', { ascending: true });
 
       if (data) {
         setBooks(data);
         
         const promotedBook = data.find(b => b.new === true);
         
-        // SOLUCIÓN: Usamos localStorage y el ID del libro. 
-        // Solo lo verá UNA vez. Si cambias el libro "new" en la BD, lo verá una vez para el nuevo.
+        // Usamos localStorage y el ID del libro. Solo lo verá UNA vez.
         if (promotedBook && !localStorage.getItem(`apapacho_new_seen_${promotedBook.id}`)) {
           setNewReleaseBook(promotedBook);
           setShowNewModal(true);
@@ -39,9 +52,23 @@ export default function BookGallery() {
     fetchBooks();
   }, []);
 
+  // 1. Extraemos los autores únicos de los libros para el filtro
+  const authors = Array.from(new Set(books.map(b => b.author).filter(Boolean))) as string[];
+
+  // 2. Aplicamos los filtros
+  const filteredBooks = books.filter((book) => {
+    const matchGenre = selectedGenre ? book.genre === selectedGenre : true;
+    const matchLanguage = selectedLanguage ? book.language === selectedLanguage : true;
+    const matchAuthor = selectedAuthor ? book.author === selectedAuthor : true;
+    
+    return matchGenre && matchLanguage && matchAuthor;
+  });
+
+  const hasActiveFilters = selectedGenre || selectedLanguage || selectedAuthor;
+
   if (loading) {
     return (
-      <div className="p-20 text-center font-bold text-brand-gold">
+      <div className="p-20 text-center font-bold text-[11px] uppercase tracking-widest text-brand-gold">
         Cargando...
       </div>
     );
@@ -49,28 +76,88 @@ export default function BookGallery() {
 
   return (
     <div className="w-full px-6 pt-6 pb-20 overflow-x-hidden">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 items-start w-full">
-        {books.map((book) => (
-          <div
-            key={book.id}
-            onClick={() => setSelectedBook(book)}
-            className="relative aspect-[5/8] w-full bg-[#f2f2f2] rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer border border-brand-gold/5 block"
+      
+      {/* BARRA DE FILTROS DESLIZABLE */}
+      <div className="flex gap-2 overflow-x-auto pb-4 mb-4 -mx-6 px-6 scrollbar-hide snap-x">
+        <select
+          value={selectedGenre}
+          onChange={(e) => setSelectedGenre(e.target.value)}
+          className="snap-start bg-white border border-brand-gold/20 text-brand-dark text-[10px] font-bold uppercase tracking-widest rounded-full px-4 py-2.5 outline-none focus:border-brand-gold shrink-0 appearance-none shadow-sm"
+        >
+          <option value="">Género: Todos</option>
+          {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+
+        <select
+          value={selectedLanguage}
+          onChange={(e) => setSelectedLanguage(e.target.value)}
+          className="snap-start bg-white border border-brand-gold/20 text-brand-dark text-[10px] font-bold uppercase tracking-widest rounded-full px-4 py-2.5 outline-none focus:border-brand-gold shrink-0 appearance-none shadow-sm"
+        >
+          <option value="">Idioma: Todos</option>
+          {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+        </select>
+
+        <select
+          value={selectedAuthor}
+          onChange={(e) => setSelectedAuthor(e.target.value)}
+          className="snap-start bg-white border border-brand-gold/20 text-brand-dark text-[10px] font-bold uppercase tracking-widest rounded-full px-4 py-2.5 outline-none focus:border-brand-gold shrink-0 appearance-none shadow-sm"
+        >
+          <option value="">Autor: Todos</option>
+          {authors.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+
+        {/* Botón para limpiar filtros */}
+        {hasActiveFilters && (
+          <button 
+            onClick={() => {
+              setSelectedGenre('');
+              setSelectedLanguage('');
+              setSelectedAuthor('');
+            }}
+            className="snap-start flex items-center justify-center bg-red-50 text-brand-red border border-red-100 rounded-full px-4 py-2.5 shrink-0 active:scale-95 transition-transform"
           >
-            {book.cover_url ? (
-              <img 
-                src={book.cover_url} 
-                alt={book.title} 
-                className={`w-full h-full object-cover ${!book.published ? 'opacity-30' : ''}`} 
-              />
-            ) : (
-              <div className="w-full h-full bg-brand-blue-bg flex items-center justify-center">
-                <BookOpen className="text-brand-dark/20" size={24} />
-              </div>
-            )}
-          </div>
-        ))}
+            <FilterX size={14} />
+          </button>
+        )}
       </div>
 
+      {/* GALERÍA DE LIBROS */}
+      {filteredBooks.length > 0 ? (
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 items-start w-full">
+          {filteredBooks.map((book) => (
+            <div
+              key={book.id}
+              onClick={() => setSelectedBook(book)}
+              className="relative aspect-[5/8] w-full bg-[#f2f2f2] rounded-md overflow-hidden shadow-lg active:scale-95 transition-transform cursor-pointer border border-brand-gold/5 block group"
+            >
+              {book.cover_url ? (
+                <img 
+                  src={book.cover_url} 
+                  alt={book.title} 
+                  className={`w-full h-full object-cover ${!book.published ? 'opacity-30' : ''}`} 
+                />
+              ) : (
+                <div className="w-full h-full bg-brand-blue-bg flex items-center justify-center">
+                  <BookOpen className="text-brand-dark/20" size={24} />
+                </div>
+              )}
+              {/* Etiqueta de idioma */}
+              {book.language && (
+                <div className="absolute top-1 right-1 bg-black/60 backdrop-blur-sm text-white text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase">
+                  {book.language}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-20">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-dark/40 mb-2">No hay resultados</p>
+          <p className="text-[10px] text-brand-dark/30">Intenta cambiar los filtros seleccionados.</p>
+        </div>
+      )}
+
+      {/* MODAL DETALLES DEL LIBRO */}
       <AnimatePresence>
         {selectedBook && (
           <BookDetailSheet
@@ -80,6 +167,7 @@ export default function BookGallery() {
         )}
       </AnimatePresence>
 
+      {/* MODAL NUEVO LANZAMIENTO */}
       <AnimatePresence>
         {showNewModal && newReleaseBook && (
           <motion.div 
