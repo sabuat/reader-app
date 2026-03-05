@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import { Capacitor } from '@capacitor/core';
+import { AdMob } from '@capacitor-community/admob'; // <-- IMPORTAMOS ADMOB
 
 function ReaderContent() {
   const searchParams = useSearchParams();
@@ -23,7 +25,6 @@ function ReaderContent() {
   const [nightMode, setNightMode] = useState(false);
 
   const [sessionReads, setSessionReads] = useState(0);
-  const [showAd, setShowAd] = useState(false);
 
   // Estados de Voz y Menú
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -40,6 +41,13 @@ function ReaderContent() {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       setSpeechSupported(true);
+    }
+
+    // INICIALIZAR ADMOB AL ENTRAR AL LECTOR (Solo si es app nativa)
+    if (Capacitor.isNativePlatform()) {
+      AdMob.initialize({
+        initializeForTesting: true, // Esto le avisa a Google que estamos haciendo pruebas
+      }).catch(e => console.error("Error inicializando AdMob", e));
     }
   }, []);
 
@@ -98,12 +106,12 @@ function ReaderContent() {
     setIsPaused(false);
   }, [currentIdx]);
 
+  // FUNCIONES DE VOZ
   const handleSpeak = () => {
     if (!speechSupported) {
       alert("Para escuchar capítulos, tu teléfono necesita tener activa la lectura por voz.");
       return;
     }
-    
     const rawContent = chapters[currentIdx]?.content || '';
     if (!rawContent) return; 
     
@@ -113,9 +121,7 @@ function ReaderContent() {
       setIsSpeaking(true);
       return;
     }
-
     const cleanText = rawContent.replace(/[*#_>]/g, '');
-    
     safeCancelSpeech();
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'es-ES'; 
@@ -145,6 +151,21 @@ function ReaderContent() {
     setIsPaused(false);
   };
 
+  // FUNCIÓN PARA MOSTRAR ANUNCIO DE ADMOB
+  const showRealAd = async () => {
+    if (!Capacitor.isNativePlatform()) return; // Si estás probando en PC, no hace nada
+    try {
+      // Usamos el ID de prueba de Anuncio Intersticial oficial de Google
+      await AdMob.prepareInterstitial({
+        adId: 'ca-app-pub-3940256099942544/1033173712',
+        isTesting: true 
+      });
+      await AdMob.showInterstitial();
+    } catch (e) {
+      console.error("No se pudo mostrar el anuncio", e);
+    }
+  };
+
   const handleNextChapter = async () => {
     if (currentIdx >= chapters.length - 1 || !userId || !id) return;
 
@@ -167,9 +188,12 @@ function ReaderContent() {
       setCurrentIdx(currentIdx + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
+      // CADA DOS CAPÍTULOS MOSTRAMOS EL ANUNCIO
       setSessionReads((prev) => {
         const newCount = prev + 1;
-        if (newCount % 2 === 0) setShowAd(true);
+        if (newCount % 2 === 0) {
+          showRealAd(); // Llama a AdMob
+        }
         return newCount;
       });
     } catch (err) {
@@ -226,10 +250,7 @@ function ReaderContent() {
 
       <article className="flex-grow px-6 max-w-2xl mx-auto w-full pt-4 pb-32">
         <header className="mb-14">
-          
-          {/* ICONOS DE ACCIÓN ALINEADOS A LA IZQUIERDA - MOSTRADOS SIEMPRE */}
           <div className="flex justify-start items-center gap-3 mb-4">
-            {/* Reproductor de voz circular */}
             {!isSpeaking && !isPaused ? (
               <button 
                 onClick={handleSpeak} 
@@ -254,7 +275,6 @@ function ReaderContent() {
               </div>
             )}
 
-            {/* Menú de Capítulos */}
             <button 
               onClick={() => setShowChapterMenu(true)} 
               className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue'}`}
@@ -263,11 +283,9 @@ function ReaderContent() {
             </button>
           </div>
 
-          {/* TÍTULO EN 2XL ALINEADO A LA IZQUIERDA */}
           <h1 className={`text-2xl font-serif italic leading-tight text-left transition-colors duration-500 ${nightMode ? 'text-brand-gold' : 'text-brand-dark'}`}>
             {currentChapter.title}
           </h1>
-
           <div className="h-px bg-brand-gold/30 w-full mt-6" />
         </header>
 
@@ -361,26 +379,6 @@ function ReaderContent() {
                 ))}
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showAd && (
-          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
-            <div className="bg-white rounded-[2rem] p-6 max-w-sm w-full text-center shadow-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-bold">Publicidad</span>
-                <button onClick={() => setShowAd(false)} className="p-1 active:scale-90 bg-gray-100 rounded-full"><X size={16} className="text-gray-500" /></button>
-              </div>
-              <div className="w-full aspect-[4/5] bg-brand-blue-bg border border-brand-gold/20 rounded-xl mb-6 flex flex-col items-center justify-center p-4">
-                <span className="text-brand-dark/30 font-serif italic text-xl mb-2">Tu Anuncio Aquí</span>
-                <span className="text-[10px] text-brand-dark/40 font-bold uppercase tracking-widest text-center">Apoya a los autores viendo esta publicidad</span>
-              </div>
-              <button onClick={() => setShowAd(false)} className="w-full bg-brand-gold text-white py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all">
-                Continuar leyendo
-              </button>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
