@@ -8,8 +8,8 @@ android {
         applicationId "com.sabuat.apapacho"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.7.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Some envs claim that can not see this specifically for davinci library
@@ -21,9 +21,9 @@ android {
     signingConfigs {
         release {
             storeFile file('apapacho-release.keystore')
-            storePassword '#Apapacho2025' // Pon aquí la contraseña que inventaste
+            storePassword '#Apapacho2025' 
             keyAlias 'apapacho'
-            keyPassword '#Apapacho2025' // La misma contraseña
+            keyPassword '#Apapacho2025'
         }
     }
 
@@ -31,7 +31,6 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            // 2. AGREGA ESTA LÍNEA AQUÍ
             signingConfig signingConfigs.release 
         }
     }

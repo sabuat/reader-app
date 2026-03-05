@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, ChevronRight, BookOpen, X, Volume2, Play, Pause, Square } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, X, Volume2, Play, Pause, Square, List } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -25,14 +25,23 @@ function ReaderContent() {
   const [sessionReads, setSessionReads] = useState(0);
   const [showAd, setShowAd] = useState(false);
 
+  // Estados de Voz y Menú
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [showChapterMenu, setShowChapterMenu] = useState(false);
 
   const safeCancelSpeech = () => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
   };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      setSpeechSupported(true);
+    }
+  }, []);
 
   useEffect(() => {
     const savedFontSize = localStorage.getItem('apapacho_fontSize');
@@ -90,9 +99,8 @@ function ReaderContent() {
   }, [currentIdx]);
 
   const handleSpeak = () => {
-    // Si no está soportado, evitamos colapsar
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      alert("Tu dispositivo no soporta la lectura por voz en este momento.");
+    if (!speechSupported) {
+      alert("Para escuchar capítulos, tu teléfono necesita tener activa la lectura por voz.");
       return;
     }
     
@@ -124,7 +132,7 @@ function ReaderContent() {
   };
 
   const handlePause = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    if (speechSupported) {
       window.speechSynthesis.pause();
       setIsPaused(true);
       setIsSpeaking(false);
@@ -217,43 +225,54 @@ function ReaderContent() {
       </nav>
 
       <article className="flex-grow px-6 max-w-2xl mx-auto w-full pt-4 pb-32">
-        <header className="mb-14 text-center">
-          {/* TÍTULO EN 1XL */}
-          <h1 className={`text-xl font-serif italic leading-tight transition-colors duration-500 ${nightMode ? 'text-brand-gold' : 'text-brand-dark'}`}>
+        <header className="mb-14">
+          
+          {/* ICONOS DE ACCIÓN ALINEADOS A LA IZQUIERDA */}
+          <div className="flex justify-start items-center gap-3 mb-4">
+            {/* Reproductor de voz circular */}
+            {speechSupported && (
+              !isSpeaking && !isPaused ? (
+                <button 
+                  onClick={handleSpeak} 
+                  className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue'}`}
+                >
+                  <Volume2 size={18} />
+                </button>
+              ) : (
+                <div className={`flex items-center gap-1 p-1 rounded-full ${nightMode ? 'bg-brand-gold/20' : 'bg-brand-dark-blue/10'}`}>
+                  {isPaused ? (
+                    <button onClick={handleSpeak} className={`p-2 rounded-full active:scale-90 transition-transform ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>
+                      <Play size={16} fill="currentColor" />
+                    </button>
+                  ) : (
+                    <button onClick={handlePause} className={`p-2 rounded-full active:scale-90 transition-transform ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>
+                      <Pause size={16} fill="currentColor" />
+                    </button>
+                  )}
+                  <button onClick={handleStop} className="p-2 rounded-full text-brand-red active:scale-90 transition-transform">
+                    <Square size={16} fill="currentColor" />
+                  </button>
+                </div>
+              )
+            )}
+
+            {/* Menú de Capítulos */}
+            <button 
+              onClick={() => setShowChapterMenu(true)} 
+              className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue'}`}
+            >
+              <List size={18} />
+            </button>
+          </div>
+
+          {/* TÍTULO EN 2XL ALINEADO A LA IZQUIERDA */}
+          <h1 className={`text-2xl font-serif italic leading-tight text-left transition-colors duration-500 ${nightMode ? 'text-brand-gold' : 'text-brand-dark'}`}>
             {currentChapter.title}
           </h1>
 
-          {/* BOTÓN DE VOZ MOSTRADO SIEMPRE */}
-          <div className="flex justify-center items-center mt-8">
-            {!isSpeaking && !isPaused ? (
-              <button 
-                onClick={handleSpeak} 
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-full border text-[10px] uppercase font-bold tracking-widest active:scale-95 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-brand-dark-blue text-brand-dark-blue'}`}
-              >
-                <Volume2 size={16} /> Escuchar Capítulo
-              </button>
-            ) : (
-              <div className={`flex items-center gap-2 px-2 py-1.5 rounded-full border shadow-sm ${nightMode ? 'border-brand-gold/30 bg-brand-dark/50' : 'border-brand-dark-blue/20 bg-white'}`}>
-                {isPaused ? (
-                  <button onClick={handleSpeak} className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold text-brand-dark' : 'bg-brand-dark-blue text-white'}`}>
-                    <Play size={14} fill="currentColor" />
-                  </button>
-                ) : (
-                  <button onClick={handlePause} className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold text-brand-dark' : 'bg-brand-dark-blue text-white'}`}>
-                    <Pause size={14} fill="currentColor" />
-                  </button>
-                )}
-                <button onClick={handleStop} className="p-2.5 rounded-full text-brand-red active:scale-90 transition-transform">
-                  <Square size={14} fill="currentColor" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="h-px bg-brand-gold/30 w-12 mx-auto mt-8" />
+          <div className="h-px bg-brand-gold/30 w-full mt-6" />
         </header>
 
-        {/* INTERLINEADO 1.25 */}
         <div className={`font-texto leading-[1.25] text-justify mb-20 transition-all duration-500 ${fontSize} ${nightMode ? 'text-[#D4AF37]/90' : 'text-brand-dark/90'}`}>
           <ReactMarkdown
             components={{
@@ -300,6 +319,53 @@ function ReaderContent() {
           )}
         </footer>
       </article>
+
+      {/* PANEL LATERAL: MENÚ DE CAPÍTULOS */}
+      <AnimatePresence>
+        {showChapterMenu && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
+            onClick={() => setShowChapterMenu(false)}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end"
+          >
+            <motion.div 
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-[85%] max-w-sm h-full shadow-2xl flex flex-col border-l border-brand-gold/10 ${nightMode ? 'bg-[#121212]' : 'bg-brand-bg'}`}
+            >
+              <div 
+                className="p-6 border-b border-brand-gold/10 flex justify-between items-center shrink-0" 
+                style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top))' }}
+              >
+                <h2 className={`text-xl font-serif italic ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>Índice</h2>
+                <button onClick={() => setShowChapterMenu(false)} className={`p-2 active:scale-90 transition-transform ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="flex-grow overflow-y-auto p-4 space-y-2">
+                {chapters.map((chap, idx) => (
+                  <button 
+                    key={chap.id} 
+                    onClick={() => {
+                      setCurrentIdx(idx);
+                      setShowChapterMenu(false);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`w-full text-left p-4 rounded-xl text-sm transition-colors ${
+                      currentIdx === idx 
+                        ? (nightMode ? 'bg-brand-gold/20 text-brand-gold font-bold' : 'bg-brand-dark-blue/10 text-brand-dark-blue font-bold') 
+                        : (nightMode ? 'text-gray-300 active:bg-white/5' : 'text-brand-dark active:bg-black/5')
+                    }`}
+                  >
+                    Capítulo {chap.chapter_number}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showAd && (
