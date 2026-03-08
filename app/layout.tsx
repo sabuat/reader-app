@@ -28,11 +28,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="es">
+      <head>
+        {/* MAGIA: Le dice al teléfono que nuestra app controlará las áreas seguras */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+      </head>
       <body className="bg-brand-bg dark:bg-[#121212] text-brand-dark dark:text-gray-200 min-h-[100dvh] flex flex-col overflow-x-hidden antialiased transition-colors duration-500">
         
         <ThemeProvider>
           {showNav && !isReadingMode && (
-            <header className="fixed top-0 w-full h-16 bg-brand-bg/80 dark:bg-[#121212]/90 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10 dark:border-brand-gold/20 transition-colors duration-500">
+            {/* Header: Agregamos padding-top dinámico basado en el 'notch' del teléfono */}
+            <header className="fixed top-0 w-full bg-brand-bg/80 dark:bg-[#121212]/90 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10 dark:border-brand-gold/20 transition-colors duration-500 pt-[env(safe-area-inset-top)] h-[calc(4rem+env(safe-area-inset-top))]">
               <Link href="/home" className="flex items-center active:scale-95 transition-transform">
                 <Image src="/logo.png" alt="Logo" width={110} height={35} className="object-contain" priority />
               </Link>
@@ -47,12 +52,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {isMenuOpen && <SideMenu onClose={() => setIsMenuOpen(false)} />}
           </AnimatePresence>
 
-          <main className={`flex-grow w-full overflow-x-hidden ${(!showNav || isReadingMode) ? 'pt-0' : 'pt-16'} ${!showNav || isReadingMode ? 'pb-0' : 'pb-24'}`}>
+          {/* Main: Ajustamos los márgenes interiores para que el contenido no quede debajo de los menús */}
+          <main className={`flex-grow w-full overflow-x-hidden ${(!showNav || isReadingMode) ? 'pt-0' : 'pt-[calc(4rem+env(safe-area-inset-top))]'} ${!showNav || isReadingMode ? 'pb-0' : 'pb-[calc(6rem+env(safe-area-inset-bottom))]'}`}>
             {children}
           </main>
 
           {showNav && !isReadingMode && (
-            <nav className="fixed bottom-0 w-full h-20 bg-white/90 dark:bg-[#121212]/90 backdrop-blur-lg border-t border-brand-gold/10 dark:border-brand-gold/20 px-8 flex justify-between items-center z-40 pb-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.5)] transition-colors duration-500">
+            {/* Nav Inferior: Agregamos padding-bottom dinámico basado en la barra de gestos */}
+            <nav className="fixed bottom-0 w-full bg-white/90 dark:bg-[#121212]/90 backdrop-blur-lg border-t border-brand-gold/10 dark:border-brand-gold/20 px-8 flex justify-between items-center z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.5)] transition-colors duration-500 pb-[calc(1rem+env(safe-area-inset-bottom))] h-[calc(5rem+env(safe-area-inset-bottom))]">
               <Link href="/home" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/home') ? 'text-brand-dark-blue dark:text-brand-gold' : 'text-gray-400 dark:text-gray-500'}`}>
                 <Home size={22} />
                 <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>

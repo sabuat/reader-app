@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   // @ts-ignore
   plugins: {
     StatusBar: {
-      overlaysWebView: false,
+      overlaysWebView: true,
     },
     GoogleAuth: {
       scopes: ['profile', 'email'],
