@@ -41,41 +41,63 @@ export default function AuthPage() {
 
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   
-  // NUEVOS ESTADOS PARA EL MODAL DE VALIDACIÓN
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
 
+  // --- SISTEMA BLINDADO DE AUTO-RECUPERACIÓN ---
   useEffect(() => {
     let isMounted = true;
 
     const checkCurrentSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user && isMounted) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', session.user.id)
-          .maybeSingle();
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        // Si hay un error al leer la caché, lanzamos el error para que el catch lo limpie
+        if (sessionError) throw sessionError;
+        
+        if (session?.user && isMounted) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', session.user.id)
+            .maybeSingle();
 
-        if (profile) {
-          const lastRoute = localStorage.getItem('apapacho_last_route') || '/home';
-          router.push(lastRoute);
-          return; 
-        } else {
-          setAuthUserId(session.user.id);
-          setRegEmail(session.user.email || '');
-          setFullName(session.user.user_metadata?.full_name || '');
-          setView('complete_profile');
+          if (profileError && profileError.code !== 'PGRST116') {
+             console.error("Error validando perfil:", profileError);
+          }
+
+          if (profile) {
+            const lastRoute = localStorage.getItem('apapacho_last_route') || '/home';
+            router.push(lastRoute);
+            // Mantenemos la pantalla de carga 1 segundito más para que la transición sea suave
+            setTimeout(() => { if (isMounted) setIsCheckingSession(false); }, 1000);
+            return; 
+          } else {
+            setAuthUserId(session.user.id);
+            setRegEmail(session.user.email || '');
+            setFullName(session.user.user_metadata?.full_name || '');
+            setView('complete_profile');
+          }
         }
+      } catch (error) {
+        console.error("Caché corrupta detectada, forzando limpieza...", error);
+        // MAGIA: Si la sesión está trabada, esto limpia la basura del teléfono
+        await supabase.auth.signOut(); 
       }
       
+      // Si todo sale bien o si la caché se limpió, apagamos la carga
       if (isMounted) {
         setIsCheckingSession(false); 
       }
     };
 
     checkCurrentSession();
+
+    // SALVAVIDAS EXTREMO: Si pasan 7 segundos y la app sigue cargando (por mal internet, etc), 
+    // forzamos a que aparezca la pantalla de login. ¡Adiós cargas infinitas!
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) setIsCheckingSession(false);
+    }, 7000);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && isMounted) {
@@ -86,9 +108,11 @@ export default function AuthPage() {
 
     return () => { 
       isMounted = false;
+      clearTimeout(fallbackTimer);
       authListener.subscription.unsubscribe(); 
     };
   }, [router]);
+  // ----------------------------------------------
 
   const isOldEnough = (birthDateString: string) => {
     const today = new Date();
@@ -113,7 +137,6 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true); setErrorMsg('');
 
-    // NUEVA VALIDACIÓN INTELIGENTE
     const missing: string[] = [];
     if (!selectedAvatar) missing.push('Avatar');
     if (!username) missing.push('Usuario');
@@ -155,7 +178,6 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true); setErrorMsg('');
 
-    // NUEVA VALIDACIÓN INTELIGENTE PARA GOOGLE
     const missing: string[] = [];
     if (!selectedAvatar) missing.push('Avatar');
     if (!username) missing.push('Usuario único');
@@ -276,6 +298,7 @@ export default function AuthPage() {
 
         {view === 'login' && (
           <form onSubmit={handleLogin} className="space-y-4">
+            <GoogleButtonTop onClick={handleGoogleLogin} />
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
               <input 
@@ -295,12 +318,12 @@ export default function AuthPage() {
             <button disabled={loading} className="w-full bg-brand-gold text-white py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest shadow-lg shadow-brand-gold/20 active:scale-95 transition-all mt-6">
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
-            <DividerGoogle onClick={handleGoogleLogin} />
           </form>
         )}
 
         {view === 'register' && (
           <form onSubmit={handleRegister} className="space-y-4">
+            <GoogleButtonTop onClick={handleGoogleLogin} />
             <AvatarSelector selected={selectedAvatar} onSelect={() => setShowAvatarModal(true)} />
             <div className="grid grid-cols-2 gap-3">
               <Input placeholder="Usuario" value={username} onChange={setUsername} />
@@ -314,7 +337,6 @@ export default function AuthPage() {
             <button disabled={loading} className="w-full bg-brand-dark-blue dark:bg-brand-gold text-white dark:text-brand-dark py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest shadow-lg shadow-brand-dark-blue/20 active:scale-95 transition-all mt-4">
               {loading ? 'Creando...' : 'Crear Cuenta'}
             </button>
-            <DividerGoogle onClick={handleGoogleLogin} />
           </form>
         )}
 
@@ -341,7 +363,6 @@ export default function AuthPage() {
         )}
       </div>
 
-      {/* MODAL DE AVATARES */}
       <AnimatePresence>
         {showAvatarModal && (
           <motion.div 
@@ -366,7 +387,6 @@ export default function AuthPage() {
         )}
       </AnimatePresence>
 
-      {/* NUEVO MODAL DE VALIDACIÓN */}
       <AnimatePresence>
         {showValidationModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -400,6 +420,21 @@ export default function AuthPage() {
         )}
       </AnimatePresence>
 
+    </div>
+  );
+}
+
+function GoogleButtonTop({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="mb-2">
+      <button type="button" onClick={onClick} className="w-full flex items-center justify-center gap-3 bg-white dark:bg-[#1A1A1A] border-2 border-gray-100 dark:border-white/5 text-brand-dark dark:text-gray-200 py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest active:scale-95 transition-all shadow-sm hover:bg-gray-50 dark:hover:bg-white/5">
+        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" /> Continuar con Google
+      </button>
+      <div className="relative flex items-center py-6">
+        <div className="flex-grow border-t border-gray-200 dark:border-white/10 transition-colors"></div>
+        <span className="flex-shrink-0 mx-4 text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-widest font-bold transition-colors">O usa tu correo</span>
+        <div className="flex-grow border-t border-gray-200 dark:border-white/10 transition-colors"></div>
+      </div>
     </div>
   );
 }
@@ -439,21 +474,6 @@ function DateInput({ value, onChange }: any) {
         }`}
       />
     </div>
-  );
-}
-
-function DividerGoogle({ onClick }: { onClick: () => void }) {
-  return (
-    <>
-      <div className="relative flex items-center py-4">
-        <div className="flex-grow border-t border-gray-200 dark:border-white/10 transition-colors"></div>
-        <span className="flex-shrink-0 mx-4 text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-widest font-bold transition-colors">O continúa con</span>
-        <div className="flex-grow border-t border-gray-200 dark:border-white/10 transition-colors"></div>
-      </div>
-      <button type="button" onClick={onClick} className="w-full flex items-center justify-center gap-3 bg-white dark:bg-[#1A1A1A] border-2 border-gray-100 dark:border-white/5 text-brand-dark dark:text-gray-200 py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest active:scale-90 transition-all">
-        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" /> Google
-      </button>
-    </>
   );
 }
 
