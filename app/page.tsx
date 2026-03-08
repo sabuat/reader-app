@@ -40,6 +40,10 @@ export default function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  
+  // NUEVOS ESTADOS PARA EL MODAL DE VALIDACIÓN
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [showValidationModal, setShowValidationModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -109,10 +113,24 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true); setErrorMsg('');
 
-    if (!selectedAvatar || !username || !fullName || !dob || !country || !regEmail || !regPassword || !confirmPassword) {
-      setErrorMsg('Todos los campos son obligatorios.');
-      setLoading(false); return;
+    // NUEVA VALIDACIÓN INTELIGENTE
+    const missing: string[] = [];
+    if (!selectedAvatar) missing.push('Avatar');
+    if (!username) missing.push('Usuario');
+    if (!fullName) missing.push('Nombre Completo');
+    if (!dob) missing.push('Fecha de Nacimiento');
+    if (!country) missing.push('País');
+    if (!regEmail) missing.push('Correo Electrónico');
+    if (!regPassword) missing.push('Contraseña');
+    if (!confirmPassword) missing.push('Confirmar Contraseña');
+
+    if (missing.length > 0) {
+      setMissingFields(missing);
+      setShowValidationModal(true);
+      setLoading(false); 
+      return;
     }
+
     if (regPassword !== confirmPassword) {
       setErrorMsg('Las contraseñas no coinciden.');
       setLoading(false); return;
@@ -137,10 +155,20 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true); setErrorMsg('');
 
-    if (!selectedAvatar || !username || !dob || !country) {
-      setErrorMsg('Por favor completa todos los campos obligatorios.');
-      setLoading(false); return;
+    // NUEVA VALIDACIÓN INTELIGENTE PARA GOOGLE
+    const missing: string[] = [];
+    if (!selectedAvatar) missing.push('Avatar');
+    if (!username) missing.push('Usuario único');
+    if (!dob) missing.push('Fecha de Nacimiento');
+    if (!country) missing.push('País');
+
+    if (missing.length > 0) {
+      setMissingFields(missing);
+      setShowValidationModal(true);
+      setLoading(false); 
+      return;
     }
+
     if (!isOldEnough(dob)) {
       setErrorMsg('Debes tener al menos 14 años para unirte.');
       setLoading(false); return;
@@ -313,12 +341,13 @@ export default function AuthPage() {
         )}
       </div>
 
+      {/* MODAL DE AVATARES */}
       <AnimatePresence>
         {showAvatarModal && (
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} 
             transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
-            className="fixed inset-0 z-50 bg-[#F9F9F7] dark:bg-[#121212] flex flex-col p-6 transition-colors duration-500"
+            className="fixed inset-0 z-[60] bg-[#F9F9F7] dark:bg-[#121212] flex flex-col p-6 transition-colors duration-500"
             style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
             <div className="flex justify-between items-center mb-8 mt-6">
@@ -336,6 +365,41 @@ export default function AuthPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* NUEVO MODAL DE VALIDACIÓN */}
+      <AnimatePresence>
+        {showValidationModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowValidationModal(false)}
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-[#1A1A1A] w-full max-w-sm p-8 rounded-3xl shadow-2xl relative z-10 border border-brand-gold/20"
+            >
+              <button type="button" onClick={() => setShowValidationModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-brand-dark dark:hover:text-gray-200 transition-colors">
+                <X size={20} />
+              </button>
+              <h3 className="text-2xl font-serif italic text-brand-dark dark:text-brand-gold mb-2">Faltan datos</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 font-texto">Por favor, completa los siguientes campos para continuar:</p>
+              <ul className="space-y-2 mb-8">
+                {missingFields.map(field => (
+                  <li key={field} className="text-[11px] font-bold uppercase tracking-widest text-brand-dark-blue dark:text-brand-gold bg-brand-dark-blue/5 dark:bg-brand-gold/10 px-4 py-3 rounded-xl flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-brand-dark-blue dark:bg-brand-gold" />
+                    {field}
+                  </li>
+                ))}
+              </ul>
+              <button type="button" onClick={() => setShowValidationModal(false)} className="w-full py-4 bg-brand-gold text-white rounded-2xl font-bold text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-transform">
+                Entendido
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
@@ -355,7 +419,7 @@ function AvatarSelector({ selected, onSelect }: { selected: string, onSelect: ()
 
 function Input({ placeholder, type = "text", value, onChange }: any) {
   return (
-    <input type={type} placeholder={placeholder} required value={value} onChange={(e) => onChange(e.target.value)}
+    <input type={type} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)}
       className="w-full bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-brand-gold transition-colors text-brand-dark dark:text-gray-200"
     />
   );
@@ -369,7 +433,7 @@ function DateInput({ value, onChange }: any) {
           Nacimiento
         </label>
       )}
-      <input type="date" required value={value} onChange={(e) => onChange(e.target.value)}
+      <input type="date" value={value} onChange={(e) => onChange(e.target.value)}
         className={`w-full bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-xl py-3 pr-4 text-sm focus:outline-none focus:border-brand-gold transition-colors ${
           !value ? 'pl-[100px] text-transparent' : 'pl-4 text-brand-dark dark:text-gray-200'
         }`}
@@ -430,7 +494,6 @@ function SelectCountry({ value, onChange }: { value: string, onChange: (val: str
 
   return (
     <select 
-      required 
       value={value} 
       onChange={(e) => onChange(e.target.value)}
       className={`w-full bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-brand-gold transition-colors appearance-none ${!value ? 'text-gray-400 dark:text-gray-500' : 'text-brand-dark dark:text-gray-200'}`}

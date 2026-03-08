@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, ChevronRight, BookOpen, X, Volume2, Play, Pause, Square, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, X, Volume2, Play, Pause, Square, List, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -49,12 +49,32 @@ function ReaderContent() {
     }
   }, []);
 
+  // 1. EFECTO PARA EL TEMA (Detecta el sistema si no hay preferencia guardada)
   useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const savedFontSize = localStorage.getItem('apapacho_fontSize');
-    const savedNightMode = localStorage.getItem('apapacho_nightMode') === 'true';
-    if (savedFontSize) setFontSize(savedFontSize);
-    if (savedNightMode) setNightMode(savedNightMode);
+    const savedNightMode = localStorage.getItem('apapacho_nightMode');
 
+    if (savedFontSize) setFontSize(savedFontSize);
+
+    if (savedNightMode !== null) {
+      setNightMode(savedNightMode === 'true');
+    } else {
+      setNightMode(mediaQuery.matches);
+    }
+
+    const handleThemeChange = (e: MediaQueryListEvent) => {
+      if (localStorage.getItem('apapacho_nightMode') === null) {
+        setNightMode(e.matches);
+      }
+    };
+    mediaQuery.addEventListener('change', handleThemeChange);
+
+    return () => mediaQuery.removeEventListener('change', handleThemeChange);
+  }, []);
+
+  // 2. EFECTO PARA CARGAR DATOS
+  useEffect(() => {
     async function loadData() {
       if (!id) return;
       setLoading(true);
@@ -104,6 +124,19 @@ function ReaderContent() {
     setIsPaused(false);
   }, [currentIdx]);
 
+  // FUNCIÓN PARA ALTERNAR MODO NOCTURNO MANUALMENTE
+  const handleToggleNightMode = () => {
+    const newMode = !nightMode;
+    setNightMode(newMode);
+    localStorage.setItem('apapacho_nightMode', String(newMode));
+    
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
   const handleSpeak = () => {
     if (!speechSupported) {
       alert("Para escuchar capítulos, tu teléfono necesita tener activa la lectura por voz.");
@@ -152,7 +185,7 @@ function ReaderContent() {
     if (!Capacitor.isNativePlatform()) return; 
     try {
       await AdMob.prepareInterstitial({
-        adId: 'ca-app-pub-6944764501142533/1335629634', // <--- PEGA TU ID REAL AQUÍ
+        adId: 'ca-app-pub-6944764501142533/1335629634', 
         isTesting: false 
       });
       await AdMob.showInterstitial();
@@ -251,6 +284,15 @@ function ReaderContent() {
       <article className="flex-grow px-6 max-w-2xl mx-auto w-full pt-4 pb-32">
         <header className="mb-14">
           <div className="flex justify-start items-center gap-3 mb-4">
+            
+            {/* NUEVO BOTÓN: Alternador de Modo Nocturno */}
+            <button 
+              onClick={handleToggleNightMode} 
+              className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue'}`}
+            >
+              {nightMode ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
             {!isSpeaking && !isPaused ? (
               <button 
                 onClick={handleSpeak} 

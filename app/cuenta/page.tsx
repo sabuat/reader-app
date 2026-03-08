@@ -211,7 +211,7 @@ export default function CuentaPage() {
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3 text-brand-dark/70 dark:text-gray-300 transition-colors">
               {nightMode ? <Moon size={20} /> : <Sun size={20} />}
-              <span className="font-bold text-[12px] uppercase tracking-widest">Modo Nocturno</span>
+              <span className="font-bold text-[12px] uppercase tracking-widest">Lectura en Modo Nocturno</span>
             </div>
             <button 
               onClick={() => setNightMode(!nightMode)}

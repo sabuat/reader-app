@@ -114,7 +114,7 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
               : 'bg-gray-400 dark:bg-gray-600 text-white dark:text-gray-300 cursor-not-allowed'
           }`}
         >
-          {hasProgress ? 'Continuar' : (book.published ? 'Leer ahora' : 'Pronto')}
+          {hasProgress ? 'Continuar' : (book.published ? 'Leer ahora' : 'Proximamente')}
         </button>
       </div>
     </motion.div>
