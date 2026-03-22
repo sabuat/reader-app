@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📚 Apapacho Reader App (v2.0)
 
-## Getting Started
+Aplicación móvil oficial de **Editorial Apapacho**. Diseñada para ofrecer una experiencia de lectura inmersiva, minimalista y premium. 
 
-First, run the development server:
+Este proyecto está construido con arquitectura web moderna empaquetada de forma nativa para Android.
 
+## 🛠 Stack Tecnológico
+- **Framework Web:** Next.js 14 (React)
+- **Estilos y UI:** Tailwind CSS + Framer Motion
+- **Base de Datos & Auth:** Supabase
+- **Contenedor Móvil:** Capacitor (v8)
+- **Monetización:** Google AdMob
+
+---
+
+## ⚙️ Requisitos Previos
+Para correr o compilar este proyecto en tu entorno local, necesitas tener instalado:
+- **Node.js** (v18 o superior)
+- **Android Studio** (Para generar las firmas y probar emuladores)
+- **Java JDK 21**
+
+---
+
+## 🚀 Instalación y Configuración Local
+
+**1. Instalar dependencias**
+Debido a conflictos de versiones entre dependencias de Capacitor y plugins de Google Auth, es obligatorio usar la bandera de dependencias heredadas:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+npm install --legacy-peer-deps

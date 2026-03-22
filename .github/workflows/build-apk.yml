@@ -23,8 +23,8 @@ jobs:
 
       - name: 4. Exportar Next.js (Archivos estáticos)
         env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://wxdagnvlotoonpbtungx.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4ZGFnbnZsb3Rvb25wYnR1bmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDk1MTMsImV4cCI6MjA4NzI4NTUxM30.gNrVv7Wdlx714A4fkOCxGvUGswhurcXf_E31l7wkFM0"
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npm run build
 
       - name: 5. Sincronizar Capacitor
@@ -38,24 +38,14 @@ jobs:
 
       # --- A PARTIR DE AQUÍ SON LOS CAMBIOS PARA GOOGLE PLAY ---
 
-      - name: 7. Compilar el AAB (Modo Producción)
+      - name: 7. Compilar el APK (Modo Producción)
         working-directory: ./android
         run: |
           chmod +x ./gradlew
-          ./gradlew bundleRelease
+          ./gradlew assembleRelease
 
-      - name: 7.5 Firmar el App Bundle
-        uses: r0adkll/sign-android-release@v1
-        id: sign_app
-        with:
-          releaseDirectory: android/app/build/outputs/bundle/release
-          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
-          alias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-
-      - name: 8. Entregar el AAB Firmado
+      - name: 8. Entregar el APK
         uses: actions/upload-artifact@v4
         with:
-          name: apapacho-app-aab
-          path: ${{steps.sign_app.outputs.signedReleaseFile}}
+          name: apapacho-app-apk
+          path: android/app/build/outputs/apk/release/app-release.apk

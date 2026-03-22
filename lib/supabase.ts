@@ -7,22 +7,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Faltan las variables de entorno de Supabase');
 }
 
-// Filtro de seguridad extremo: Intercepta la memoria antes de que Supabase la lea.
-// Si la memoria tiene basura (ej. JSON incompleto), la destruye antes de que la app se congele.
+// Definimos la versión actual de la app para el caché
+const APP_VERSION = 'v2';
+
+// Filtro de seguridad: Intercepta la memoria antes de que Supabase la lea.
 const robustStorage = {
   getItem: (key: string) => {
     if (typeof window === 'undefined') return null;
     try {
       const item = window.localStorage.getItem(key);
       if (item) {
-        // Intentamos descifrarlo. Si está corrupto, esto fallará y saltará directamente al catch.
-        JSON.parse(item);
+        JSON.parse(item); // Probamos si el JSON es válido
       }
       return item;
     } catch (error) {
-      console.warn('¡Caché corrupta detectada! Limpiando sector...', key);
+      console.warn(`[Storage] Caché corrupta en la clave ${key}. Limpiando solo esta entrada...`);
+      // ATENCIÓN: Solo borramos la clave corrupta, NO hacemos signOut destructivo
       window.localStorage.removeItem(key);
-      return null; // Devuelve null para forzar un inicio limpio en lugar de congelarse
+      return null; 
     }
   },
   setItem: (key: string, value: string) => {
@@ -30,7 +32,7 @@ const robustStorage = {
       try {
         window.localStorage.setItem(key, value);
       } catch (err) {
-        console.error('Error guardando en caché', err);
+        console.error('[Storage] Error guardando en caché', err);
       }
     }
   },
@@ -39,7 +41,7 @@ const robustStorage = {
       try {
         window.localStorage.removeItem(key);
       } catch (err) {
-        console.error('Error eliminando caché', err);
+        console.error('[Storage] Error eliminando caché', err);
       }
     }
   }
@@ -48,9 +50,10 @@ const robustStorage = {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: robustStorage,
+    // MAGIA: Supabase ahora guardará la sesión bajo este nombre único.
+    storageKey: `apapacho_${APP_VERSION}_session`, 
     autoRefreshToken: true,
     persistSession: true,
-    // FUNDAMENTAL: Evita que Supabase intente leer parámetros extraños en la URL móvil y se bloquee
     detectSessionInUrl: false 
   }
 });

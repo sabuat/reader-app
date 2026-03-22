@@ -1,9 +1,12 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { BookOpen, X, Filter, FilterX } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import BookDetailSheet from '@/components/BookDetailSheet';
+
+// 🌟 IMPORTAMOS LAS NUEVAS FUNCIONALIDADES
+import { BookService } from '@/services/bookService';
+import { useLanguage } from '@/hooks/useLanguage';
 
 // Listas estáticas sacadas de tu base de datos (ENUMs)
 const GENRES = [
@@ -27,26 +30,31 @@ export default function BookGallery() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [selectedAuthor, setSelectedAuthor] = useState<string>('');
 
+  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  const { t } = useLanguage();
+
   useEffect(() => {
     async function fetchBooks() {
-      const { data } = await supabase
-        .from('books')
-        .select('*')
-        .order('published', { ascending: false })
-        .order('identificador', { ascending: true }); // Mantiene el orden numérico
+      try {
+        // 🌟 USAMOS TU BOOKSERVICE (que ya tiene el order por identificador)
+        const data = await BookService.getAllBooks();
 
-      if (data) {
-        setBooks(data);
-        
-        const promotedBook = data.find(b => b.new === true);
-        
-        if (promotedBook && !localStorage.getItem(`apapacho_new_seen_${promotedBook.id}`)) {
-          setNewReleaseBook(promotedBook);
-          setShowNewModal(true);
-          localStorage.setItem(`apapacho_new_seen_${promotedBook.id}`, 'true');
+        if (data && data.length > 0) {
+          setBooks(data);
+          
+          const promotedBook = data.find((b: any) => b.new === true);
+          
+          if (promotedBook && !localStorage.getItem(`apapacho_new_seen_${promotedBook.id}`)) {
+            setNewReleaseBook(promotedBook);
+            setShowNewModal(true);
+            localStorage.setItem(`apapacho_new_seen_${promotedBook.id}`, 'true');
+          }
         }
+      } catch (error) {
+        console.error("Error cargando libros:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     fetchBooks();
@@ -69,13 +77,12 @@ export default function BookGallery() {
   if (loading) {
     return (
       <div className="p-20 text-center font-bold text-[11px] uppercase tracking-widest text-brand-gold bg-brand-bg dark:bg-[#121212] min-h-[100dvh] transition-colors duration-500">
-        Cargando...
+        {t('common.loading')}
       </div>
     );
   }
 
   return (
-    // AQUÍ ESTÁ LA CORRECCIÓN: Agregamos bg-brand-bg dark:bg-[#121212] transition-colors duration-500 min-h-[100dvh]
     <div className="w-full px-6 pt-6 pb-20 overflow-x-hidden relative bg-brand-bg dark:bg-[#121212] min-h-[100dvh] transition-colors duration-500">
       
       {/* HEADER CON BOTÓN DE FILTRO REDISEÑADO */}
@@ -116,8 +123,8 @@ export default function BookGallery() {
         </div>
       ) : (
         <div className="text-center py-20">
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-dark/40 dark:text-gray-400 mb-2 transition-colors">No hay resultados</p>
-          <p className="text-[10px] text-brand-dark/30 dark:text-gray-500 transition-colors">Intenta cambiar los filtros seleccionados.</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-dark/40 dark:text-gray-400 mb-2 transition-colors">{t('common.no_results')}</p>
+          <p className="text-[10px] text-brand-dark/30 dark:text-gray-500 transition-colors">{t('common.no_results_desc')}</p>
         </div>
       )}
 
@@ -139,7 +146,7 @@ export default function BookGallery() {
               style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
               <div className="p-6 flex justify-between items-center border-b border-brand-gold/5 dark:border-brand-gold/10 shrink-0 transition-colors">
-                <h2 className="text-2xl font-serif italic text-brand-dark-blue dark:text-brand-gold transition-colors">Filtros</h2>
+                <h2 className="text-2xl font-serif italic text-brand-dark-blue dark:text-brand-gold transition-colors">{t('common.filters')}</h2>
                 <button onClick={() => setShowFilterPanel(false)} className="p-2 active:scale-90 transition-transform">
                   <X size={26} className="text-brand-dark-blue dark:text-gray-300 transition-colors" />
                 </button>
@@ -147,31 +154,31 @@ export default function BookGallery() {
 
               <div className="flex-grow overflow-y-auto p-6 space-y-8 scrollbar-hide">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Género</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">{t('filters.genre')}</label>
                   <select value={selectedGenre} onChange={(e) => setSelectedGenre(e.target.value)}
                     className="w-full bg-white dark:bg-[#1A1A1A] border border-brand-gold/20 dark:border-brand-gold/30 text-brand-dark-blue dark:text-gray-200 text-xs font-bold uppercase tracking-widest rounded-full px-5 py-3.5 outline-none focus:border-brand-dark-blue dark:focus:border-brand-gold transition-colors appearance-none shadow-sm"
                   >
-                    <option value="">Todos los géneros</option>
+                    <option value="">{t('filters.all_genres')}</option>
                     {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Idioma</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">{t('filters.language')}</label>
                   <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)}
                     className="w-full bg-white dark:bg-[#1A1A1A] border border-brand-gold/20 dark:border-brand-gold/30 text-brand-dark-blue dark:text-gray-200 text-xs font-bold uppercase tracking-widest rounded-full px-5 py-3.5 outline-none focus:border-brand-dark-blue dark:focus:border-brand-gold transition-colors appearance-none shadow-sm"
                   >
-                    <option value="">Todos los idiomas</option>
+                    <option value="">{t('filters.all_languages')}</option>
                     {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">Autor</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">{t('filters.author')}</label>
                   <select value={selectedAuthor} onChange={(e) => setSelectedAuthor(e.target.value)}
                     className="w-full bg-white dark:bg-[#1A1A1A] border border-brand-gold/20 dark:border-brand-gold/30 text-brand-dark-blue dark:text-gray-200 text-xs font-bold uppercase tracking-widest rounded-full px-5 py-3.5 outline-none focus:border-brand-dark-blue dark:focus:border-brand-gold transition-colors appearance-none shadow-sm"
                   >
-                    <option value="">Todos los autores</option>
+                    <option value="">{t('filters.all_authors')}</option>
                     {authors.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
                 </div>
@@ -182,7 +189,7 @@ export default function BookGallery() {
                   onClick={() => setShowFilterPanel(false)}
                   className="w-full bg-brand-dark-blue dark:bg-brand-gold text-white dark:text-[#121212] py-4 rounded-full font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-brand-dark-blue/20 dark:shadow-brand-gold/10"
                 >
-                  Aplicar Filtros
+                  {t('common.apply_filters')}
                 </button>
                 {hasActiveFilters && (
                   <button 
@@ -193,7 +200,7 @@ export default function BookGallery() {
                     }}
                     className="w-full flex items-center justify-center gap-2.5 bg-red-50 dark:bg-red-900/20 text-brand-red dark:text-red-400 border border-red-100 dark:border-red-900/50 py-4 rounded-full font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-sm"
                   >
-                    <FilterX size={16} /> Limpiar Filtros
+                    <FilterX size={16} /> {t('common.clear_filters')}
                   </button>
                 )}
               </div>
@@ -221,8 +228,8 @@ export default function BookGallery() {
               </button>
 
               <div className="mt-2 mb-6 text-center">
-                <span className="text-[10px] uppercase tracking-[0.3em] text-brand-gold font-black mb-1 block">¡Novedad Editorial!</span>
-                <span className="text-[9px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-bold block transition-colors">Recién llegado a la librería</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-brand-gold font-black mb-1 block">{t('home.new_release_title')}</span>
+                <span className="text-[9px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-bold block transition-colors">{t('home.new_release_subtitle')}</span>
               </div>
               
               <div className="w-32 aspect-[5/8] mx-auto rounded-xl overflow-hidden shadow-lg mb-6 border border-brand-gold/20 dark:border-brand-gold/30 transition-colors">
@@ -236,7 +243,7 @@ export default function BookGallery() {
               </div>
 
               <p className="text-sm font-texto text-brand-dark/80 dark:text-gray-300 mb-8 leading-relaxed px-2 transition-colors">
-                Descubre el nuevo libro de <strong className="text-brand-dark dark:text-white font-bold transition-colors">{newReleaseBook.author}</strong> en Apapacho Reader. ¡No te pierdas <strong className="font-serif italic text-brand-gold text-base">{newReleaseBook.title}</strong>!
+                {t('home.discover_new_book')} <strong className="text-brand-dark dark:text-white font-bold transition-colors">{newReleaseBook.author}</strong> {t('home.in_apapacho')} <strong className="font-serif italic text-brand-gold text-base">{newReleaseBook.title}</strong>!
               </p>
 
               <button 
@@ -246,7 +253,7 @@ export default function BookGallery() {
                 }}
                 className="w-full bg-brand-dark-blue dark:bg-brand-gold text-white dark:text-[#121212] py-4 rounded-full font-bold text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-brand-dark-blue/20 dark:shadow-brand-gold/10"
               >
-                Ver Detalles
+                {t('home.see_details')}
               </button>
             </div>
           </motion.div>

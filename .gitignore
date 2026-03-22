@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# --- SEGURIDAD Y FIRMAS ANDROID ---
+*.keystore
+*.jks
+llave_base64.txt
+key.properties

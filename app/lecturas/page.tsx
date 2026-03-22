@@ -1,44 +1,39 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { BookOpen, Clock } from 'lucide-react';
 import Link from 'next/link';
+
+// 🌟 NUEVOS SERVICIOS Y COMPONENTES UI
+import { AuthService } from '@/services/authService';
+import { BookService } from '@/services/bookService';
+import { EmptyState } from '@/components/ui/StateComponents';
+
+// 🌟 IMPORTAMOS EL TRADUCTOR
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function MisLecturasPage() {
   const [readings, setReadings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  const { t } = useLanguage();
+
   useEffect(() => {
     async function fetchMyReadings() {
       setLoading(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const session = await AuthService.getSession();
         
-        if (!user) {
+        // Verificación blindada para TypeScript
+        const user = session?.user;
+        if (!user?.id) {
           setLoading(false);
           return;
         }
 
-        const { data, error } = await supabase
-          .from('reading_progress')
-          .select(`
-            chapter_number,
-            completed_chapters,
-            last_read_at,
-            book_id,
-            books (
-              id,
-              title,
-              author,
-              cover_url,
-              chapters
-            )
-          `)
-          .eq('user_id', user.id) 
-          .order('last_read_at', { ascending: false });
-
-        if (error) throw error;
+        // 🌟 LLAMADA LIMPIA USANDO EL SERVICIO
+        const data = await BookService.getMyReadings(user.id);
         setReadings(data || []);
       } catch (err) {
         console.error("Error cargando lecturas:", err);
@@ -58,15 +53,19 @@ export default function MisLecturasPage() {
   return (
     <div className="min-h-[100dvh] bg-brand-bg dark:bg-[#121212] transition-colors duration-500 px-6 pb-24 overflow-x-hidden">
       <header className="pt-10 pb-6 border-b border-brand-gold/10 dark:border-brand-gold/20 mb-6 transition-colors">
-        <h1 className="text-xl font-serif italic text-brand-dark dark:text-brand-gold transition-colors">Mis Lecturas</h1>
+        {/* 🌟 TÍTULO TRADUCIDO */}
+        <h1 className="text-xl font-serif italic text-brand-dark dark:text-brand-gold transition-colors">
+          {t('menu.readings')}
+        </h1>
       </header>
 
+      {/* 🌟 ESTADO VACÍO TRADUCIDO */}
       {readings.length === 0 ? (
-        <div className="text-center py-20">
-          <Clock className="mx-auto text-brand-dark/20 dark:text-gray-600 mb-4 transition-colors" size={32} />
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-dark/40 dark:text-gray-400 mb-2 transition-colors">Aún no hay lecturas</p>
-          <p className="text-[10px] text-brand-dark/30 dark:text-gray-500 transition-colors">Los libros que comiences a leer aparecerán aquí.</p>
-        </div>
+        <EmptyState 
+          title={t('common.no_readings')} 
+          description={t('common.no_readings_desc')} 
+          icon={<Clock size={32} />} 
+        />
       ) : (
         <div className="flex flex-col gap-4">
           {readings.map((item) => {
@@ -112,8 +111,13 @@ export default function MisLecturasPage() {
                     </div>
                     
                     <div className="flex justify-between items-center text-[10px] font-bold uppercase">
-                      <span className="text-brand-dark-blue dark:text-brand-gold transition-colors">{progressPercent}% Leído</span>
-                      <span className="text-gray-400 dark:text-gray-500 transition-colors">Cap. {item.chapter_number}</span>
+                      {/* 🌟 PROGRESO TRADUCIDO */}
+                      <span className="text-brand-dark-blue dark:text-brand-gold transition-colors">
+                        {progressPercent}% {t('reader.read_percent')}
+                      </span>
+                      <span className="text-gray-400 dark:text-gray-500 transition-colors">
+                        {t('reader.cap')} {item.chapter_number}
+                      </span>
                     </div>
                   </div>
                 </div>

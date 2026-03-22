@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+
+// 🌟 IMPORTAMOS LOS SERVICIOS Y EL TRADUCTOR
+import { AuthService } from '@/services/authService';
+import { BookService } from '@/services/bookService';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function BookDetailSheet({ book, onClose }: { book: any, onClose: () => void }) {
   const router = useRouter();
@@ -12,29 +16,25 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
   const [isInList, setIsInList] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
+  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  const { t } = useLanguage();
+
   useEffect(() => {
     async function checkData() {
-      const { data: { user } } = await supabase.auth.getUser();
+      // 1. Usamos el servicio de Auth para buscar la sesión
+      const session = await AuthService.getSession();
+      const user = session?.user;
+      
       if (!user) return;
       setUserId(user.id);
 
-      const { data: prog } = await supabase
-        .from('reading_progress')
-        .select('id')
-        .eq('book_id', book.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (prog) setHasProgress(true);
+      // 2. Usamos el servicio de Libros para el progreso
+      const progress = await BookService.getReadingProgress(user.id, book.id);
+      if (progress) setHasProgress(true);
 
-      const { data: listData } = await supabase
-        .from('my_list')
-        .select('id')
-        .eq('book_id', book.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (listData) setIsInList(true);
+      // 3. Usamos el servicio de Libros para chequear "Mi Lista"
+      const inList = await BookService.checkIfInMyList(user.id, book.id);
+      setIsInList(inList);
     }
     checkData();
   }, [book.id]);
@@ -43,10 +43,10 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
     if (!userId) return;
 
     if (isInList) {
-      await supabase.from('my_list').delete().eq('book_id', book.id).eq('user_id', userId);
+      await BookService.removeFromMyList(userId, book.id);
       setIsInList(false);
     } else {
-      await supabase.from('my_list').insert({ book_id: book.id, user_id: userId });
+      await BookService.addToMyList(userId, book.id);
       setIsInList(true);
     }
   };
@@ -71,7 +71,8 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
         }}
       >
         <button onClick={onClose} className="p-2 active:scale-90 transition-transform"><X size={28} className="text-brand-dark dark:text-gray-300" /></button>
-        <span className="text-[10px] font-bold tracking-[0.3em] text-brand-gold uppercase">Detalles</span>
+        {/* 🌟 TÍTULO TRADUCIDO */}
+        <span className="text-[10px] font-bold tracking-[0.3em] text-brand-gold uppercase">{t('common.details')}</span>
         <div className="w-10" />
       </div>
 
@@ -83,7 +84,7 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
         <h2 className="text-3xl font-serif italic text-brand-gold text-center mb-2">{book.title}</h2>
         <p className="text-xs font-texto uppercase tracking-[0.3em] text-brand-dark/60 dark:text-gray-400 mb-8 transition-colors">{book.author}</p>
         <div className="w-full border-t border-brand-gold/10 dark:border-brand-gold/20 pt-8 text-sm text-justify leading-relaxed text-brand-dark dark:text-gray-300 transition-colors">
-          {book.description || "Sin descripción disponible."}
+          {book.description || t('common.no_description')}
         </div>
       </div>
 
@@ -103,7 +104,8 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
               : 'bg-brand-gold text-white dark:text-[#121212]'
           }`}
         >
-          {isInList ? '- Quitar' : '+ Mi Lista'}
+          {/* 🌟 TEXTO TRADUCIDO */}
+          {isInList ? t('common.remove_list') : t('common.add_list')}
         </button>
         <button 
           onClick={() => router.push(`/leer?id=${book.id}`)}
@@ -114,7 +116,8 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
               : 'bg-gray-400 dark:bg-gray-600 text-white dark:text-gray-300 cursor-not-allowed'
           }`}
         >
-          {hasProgress ? 'Continuar' : (book.published ? 'Leer ahora' : 'Proximamente')}
+          {/* 🌟 TEXTO TRADUCIDO */}
+          {hasProgress ? t('reader.continue') : (book.published ? t('reader.read_now') : t('common.coming_soon'))}
         </button>
       </div>
     </motion.div>

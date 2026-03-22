@@ -10,6 +10,12 @@ import ReactMarkdown from 'react-markdown';
 import { Capacitor } from '@capacitor/core';
 import { AdMob } from '@capacitor-community/admob';
 
+// 🌟 IMPORTAMOS NUESTRAS NUEVAS PREFERENCIAS CENTRALIZADAS
+import { getPrefs, updatePrefs } from '@/lib/preferences';
+
+// 🌟 IMPORTAMOS EL TRADUCTOR
+import { useLanguage } from '@/hooks/useLanguage';
+
 function ReaderContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
@@ -21,6 +27,7 @@ function ReaderContent() {
   const [completedChapters, setCompletedChapters] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Estados ahora controlados por el gestor de preferencias
   const [fontSize, setFontSize] = useState('text-lg');
   const [nightMode, setNightMode] = useState(false);
 
@@ -30,6 +37,9 @@ function ReaderContent() {
   const [isPaused, setIsPaused] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [showChapterMenu, setShowChapterMenu] = useState(false);
+
+  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  const { t } = useLanguage();
 
   const safeCancelSpeech = () => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -49,22 +59,24 @@ function ReaderContent() {
     }
   }, []);
 
-  // 1. EFECTO PARA EL TEMA (Detecta el sistema si no hay preferencia guardada)
+  // 1. EFECTO PARA EL TEMA (Conectado a preferencias centralizadas)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const savedFontSize = localStorage.getItem('apapacho_fontSize');
-    const savedNightMode = localStorage.getItem('apapacho_nightMode');
+    
+    // Leemos todo desde nuestra única "caja" de preferencias
+    const prefs = getPrefs();
 
-    if (savedFontSize) setFontSize(savedFontSize);
+    if (prefs.fontSize) setFontSize(prefs.fontSize);
 
-    if (savedNightMode !== null) {
-      setNightMode(savedNightMode === 'true');
+    if (prefs.nightMode !== null) {
+      setNightMode(prefs.nightMode);
     } else {
       setNightMode(mediaQuery.matches);
     }
 
     const handleThemeChange = (e: MediaQueryListEvent) => {
-      if (localStorage.getItem('apapacho_nightMode') === null) {
+      const currentPrefs = getPrefs();
+      if (currentPrefs.nightMode === null) {
         setNightMode(e.matches);
       }
     };
@@ -72,6 +84,15 @@ function ReaderContent() {
 
     return () => mediaQuery.removeEventListener('change', handleThemeChange);
   }, []);
+
+  // Aplicar clases de Tailwind al body automáticamente cuando cambie nightMode
+  useEffect(() => {
+    if (nightMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [nightMode]);
 
   // 2. EFECTO PARA CARGAR DATOS
   useEffect(() => {
@@ -128,18 +149,15 @@ function ReaderContent() {
   const handleToggleNightMode = () => {
     const newMode = !nightMode;
     setNightMode(newMode);
-    localStorage.setItem('apapacho_nightMode', String(newMode));
     
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    // 🌟 Guardamos en nuestra caja única de preferencias
+    updatePrefs({ nightMode: newMode });
   };
 
   const handleSpeak = () => {
     if (!speechSupported) {
-      alert("Para escuchar capítulos, tu teléfono necesita tener activa la lectura por voz.");
+      // 🌟 ALERTA TRADUCIDA
+      alert(t('reader.speech_alert'));
       return;
     }
     const rawContent = chapters[currentIdx]?.content || '';
@@ -250,8 +268,9 @@ function ReaderContent() {
   if (chapters.length === 0) return (
     <div className={`flex flex-col items-center justify-center h-screen px-10 text-center ${nightMode ? 'bg-[#121212] text-white' : 'bg-[#F9F9F7]'}`}>
       <BookOpen size={48} className="text-brand-gold/20 mb-6" />
-      <h2 className="font-serif italic text-2xl text-brand-gold mb-4">PRÓXIMAMENTE</h2>
-      <Link href="/home" className="inline-block border-b-2 border-brand-gold text-brand-gold text-[11px] font-bold uppercase tracking-[0.2em] pb-1">Regresar</Link>
+      {/* 🌟 TEXTO TRADUCIDO Y EN MAYÚSCULAS */}
+      <h2 className="font-serif italic text-2xl text-brand-gold mb-4">{t('common.coming_soon').toUpperCase()}</h2>
+      <Link href="/home" className="inline-block border-b-2 border-brand-gold text-brand-gold text-[11px] font-bold uppercase tracking-[0.2em] pb-1">{t('common.go_back')}</Link>
     </div>
   );
 
@@ -269,14 +288,16 @@ function ReaderContent() {
       >
         <Link href="/home" className="flex items-center gap-2 text-brand-gold active:scale-90 transition-transform">
           <ChevronLeft size={20} />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Cerrar</span>
+          {/* 🌟 TEXTO TRADUCIDO */}
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{t('common.close')}</span>
         </Link>
         <div className="flex flex-col items-end">
           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.3em]">
-            Capítulo {currentChapter.chapter_number} de {chapters.length}
+            {/* 🌟 TEXTO TRADUCIDO */}
+            {t('reader.chapter')} {currentChapter.chapter_number} {t('common.of')} {chapters.length}
           </span>
           {completedChapters.includes(currentChapter.chapter_number) && (
-            <span className="text-[8px] text-green-600 font-bold uppercase tracking-tighter">Completado</span>
+            <span className="text-[8px] text-green-600 font-bold uppercase tracking-tighter">{t('reader.completed')}</span>
           )}
         </div>
       </nav>
@@ -285,7 +306,6 @@ function ReaderContent() {
         <header className="mb-14">
           <div className="flex justify-start items-center gap-3 mb-4">
             
-            {/* NUEVO BOTÓN: Alternador de Modo Nocturno */}
             <button 
               onClick={handleToggleNightMode} 
               className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue'}`}
@@ -336,7 +356,12 @@ function ReaderContent() {
             components={{
               p: ({ children }) => <p className="mb-6 whitespace-pre-line">{children}</p>,
               strong: ({ children }) => <strong className="font-bold text-brand-dark-blue dark:text-brand-gold">{children}</strong>,
-              em: ({ children }) => <em className="italic">{children}</em>
+              em: ({ children }) => <em className="italic">{children}</em>,
+              blockquote: ({ children }) => (
+                <blockquote className="ml-8 pl-4 border-l-2 border-brand-gold/50 text-[0.9em] text-gray-600 dark:text-gray-400 mb-6 italic text-right">
+                  {children}
+                </blockquote>
+              )
             }}
           >
             {currentChapter.content || ''}
@@ -349,17 +374,17 @@ function ReaderContent() {
         >
           {hasPrev ? (
             <button onClick={handlePrevChapter} className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-gray-400 text-gray-400 hover:text-brand-gold'}`}>
-              <ChevronLeft size={12} className="inline mr-1 mb-0.5" /> Anterior
+              <ChevronLeft size={12} className="inline mr-1 mb-0.5" /> {t('reader.prev')}
             </button>
           ) : <div />}
 
           {hasNext ? (
             <button onClick={handleNextChapter} className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-gray-400 text-gray-400 hover:text-brand-gold'}`}>
-              Siguiente <ChevronRight size={12} className="inline ml-1 mb-0.5" />
+              {t('reader.next')} <ChevronRight size={12} className="inline ml-1 mb-0.5" />
             </button>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Fin de obra</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">{t('reader.end_of_book')}</span>
               <button onClick={async () => {
                 if (!userId || !id) return;
                 const finalCompleted = Array.from(new Set([...completedChapters, currentChapter.chapter_number]));
@@ -371,7 +396,7 @@ function ReaderContent() {
                 }, { onConflict: 'user_id,book_id' });
                 setCompletedChapters(finalCompleted);
               }} className="text-[9px] text-brand-gold font-bold underline">
-                Marcar como finalizado
+                {t('reader.mark_completed')}
               </button>
             </div>
           )}
@@ -395,7 +420,7 @@ function ReaderContent() {
                 className="p-6 border-b border-brand-gold/10 flex justify-between items-center shrink-0" 
                 style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top))' }}
               >
-                <h2 className={`text-xl font-serif italic ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>Índice</h2>
+                <h2 className={`text-xl font-serif italic ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>{t('reader.index')}</h2>
                 <button onClick={() => setShowChapterMenu(false)} className={`p-2 active:scale-90 transition-transform ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>
                   <X size={24} />
                 </button>
@@ -415,7 +440,7 @@ function ReaderContent() {
                         : (nightMode ? 'text-gray-300 active:bg-white/5' : 'text-brand-dark active:bg-black/5')
                     }`}
                   >
-                    Capítulo {chap.chapter_number}
+                    {t('reader.chapter')} {chap.chapter_number}
                   </button>
                 ))}
               </div>

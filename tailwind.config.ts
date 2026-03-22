@@ -10,6 +10,18 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontSize: {
+        'h1': ['1.875rem', { lineHeight: '2.25rem' }],
+        'h2': ['1.5rem', { lineHeight: '2rem' }], 
+        'h3': ['1.25rem', { lineHeight: '1.75rem' }], 
+        'body-lg': ['1.125rem', { lineHeight: '1.75rem' }],
+        'body': ['0.875rem', { lineHeight: '1.25rem' }],
+        'body-sm': ['0.75rem', { lineHeight: '1rem' }],
+        //Botones y etiquetas
+        'label': ['0.625rem', { lineHeight: '1rem' }],
+        'button': ['0.6875rem', { lineHeight: '1rem' }],
+        'button-lg': ['0.75rem', { lineHeight: '1rem' }],
+      },
       colors: {
         apapacho: {
           primary: "#F5B041",    // Dorado/Amarillo de la editorial

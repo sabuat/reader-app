@@ -1,32 +1,33 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Mail, Lock, User, Check, X } from 'lucide-react';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth'; 
+import { supabase } from '@/lib/supabase'; 
+
+// 🌟 IMPORTAMOS NUESTROS NUEVOS SERVICIOS, PREFERENCIAS Y EL TRADUCTOR
+import { AuthService } from '@/services/authService';
+import { getPrefs, updatePrefs } from '@/lib/preferences';
+import { useLanguage } from '@/hooks/useLanguage';
 
 const AVATARS = [
-  '/avatar/avatar-1.png',
-  '/avatar/avatar-2.png',
-  '/avatar/avatar-3.png',
-  '/avatar/avatar-4.png',
-  '/avatar/avatar-5.png',
-  '/avatar/avatar-6.png',
+  '/avatar/avatar-1.png', '/avatar/avatar-2.png', '/avatar/avatar-3.png',
+  '/avatar/avatar-4.png', '/avatar/avatar-5.png', '/avatar/avatar-6.png',
 ];
 
 export default function AuthPage() {
   const router = useRouter();
   
+  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  const { t } = useLanguage();
+  
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-
   const [view, setView] = useState<'login' | 'register' | 'complete_profile'>('login');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
   const [authUserId, setAuthUserId] = useState('');
-
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -40,36 +41,23 @@ export default function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [showAvatarModal, setShowAvatarModal] = useState(false);
-  
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
 
-  // --- SISTEMA BLINDADO DE AUTO-RECUPERACIÓN ---
   useEffect(() => {
     let isMounted = true;
 
     const checkCurrentSession = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        // Si hay un error al leer la caché, lanzamos el error para que el catch lo limpie
-        if (sessionError) throw sessionError;
+        const session = await AuthService.getSession();
         
         if (session?.user && isMounted) {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-          if (profileError && profileError.code !== 'PGRST116') {
-             console.error("Error validando perfil:", profileError);
-          }
+          const profile = await AuthService.getProfile(session.user.id);
 
           if (profile) {
-            const lastRoute = localStorage.getItem('apapacho_last_route') || '/home';
+            const { lastRoute } = getPrefs(); 
             router.push(lastRoute);
-            // Mantenemos la pantalla de carga 1 segundito más para que la transición sea suave
+            
             setTimeout(() => { if (isMounted) setIsCheckingSession(false); }, 1000);
             return; 
           } else {
@@ -81,20 +69,14 @@ export default function AuthPage() {
         }
       } catch (error) {
         console.error("Caché corrupta detectada, forzando limpieza...", error);
-        // MAGIA: Si la sesión está trabada, esto limpia la basura del teléfono
-        await supabase.auth.signOut(); 
+        await AuthService.signOut(); 
       }
       
-      // Si todo sale bien o si la caché se limpió, apagamos la carga
-      if (isMounted) {
-        setIsCheckingSession(false); 
-      }
+      if (isMounted) setIsCheckingSession(false); 
     };
 
     checkCurrentSession();
 
-    // SALVAVIDAS EXTREMO: Si pasan 7 segundos y la app sigue cargando (por mal internet, etc), 
-    // forzamos a que aparezca la pantalla de login. ¡Adiós cargas infinitas!
     const fallbackTimer = setTimeout(() => {
       if (isMounted) setIsCheckingSession(false);
     }, 7000);
@@ -112,7 +94,6 @@ export default function AuthPage() {
       authListener.subscription.unsubscribe(); 
     };
   }, [router]);
-  // ----------------------------------------------
 
   const isOldEnough = (birthDateString: string) => {
     const today = new Date();
@@ -126,9 +107,10 @@ export default function AuthPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setErrorMsg('');
-    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
-    if (error) {
-      setErrorMsg('Correo o contraseña incorrectos.');
+    try {
+      await AuthService.signInWithEmail(loginEmail, loginPassword);
+    } catch (error) {
+      setErrorMsg(t('auth.invalid_credentials'));
       setLoading(false);
     }
   };
@@ -138,14 +120,14 @@ export default function AuthPage() {
     setLoading(true); setErrorMsg('');
 
     const missing: string[] = [];
-    if (!selectedAvatar) missing.push('Avatar');
-    if (!username) missing.push('Usuario');
-    if (!fullName) missing.push('Nombre Completo');
-    if (!dob) missing.push('Fecha de Nacimiento');
-    if (!country) missing.push('País');
-    if (!regEmail) missing.push('Correo Electrónico');
-    if (!regPassword) missing.push('Contraseña');
-    if (!confirmPassword) missing.push('Confirmar Contraseña');
+    if (!selectedAvatar) missing.push(t('auth.avatar'));
+    if (!username) missing.push(t('auth.username'));
+    if (!fullName) missing.push(t('auth.full_name'));
+    if (!dob) missing.push(t('auth.dob'));
+    if (!country) missing.push(t('auth.country'));
+    if (!regEmail) missing.push(t('auth.email'));
+    if (!regPassword) missing.push(t('auth.password'));
+    if (!confirmPassword) missing.push(t('auth.confirm_password'));
 
     if (missing.length > 0) {
       setMissingFields(missing);
@@ -155,22 +137,22 @@ export default function AuthPage() {
     }
 
     if (regPassword !== confirmPassword) {
-      setErrorMsg('Las contraseñas no coinciden.');
+      setErrorMsg(t('auth.passwords_not_match'));
       setLoading(false); return;
     }
     if (!isOldEnough(dob)) {
-      setErrorMsg('Debes tener al menos 14 años para unirte.');
+      setErrorMsg(t('auth.age_requirement'));
       setLoading(false); return;
     }
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email: regEmail, password: regPassword });
-    if (authError) {
-      setErrorMsg(authError.message);
-      setLoading(false); return;
-    }
-
-    if (authData.user) {
-      await saveProfileData(authData.user.id);
+    try {
+      const authData = await AuthService.signUpWithEmail(regEmail, regPassword);
+      if (authData.user) {
+        await saveProfileData(authData.user.id);
+      }
+    } catch (error: any) {
+      setErrorMsg(error.message);
+      setLoading(false);
     }
   };
 
@@ -179,20 +161,19 @@ export default function AuthPage() {
     setLoading(true); setErrorMsg('');
 
     const missing: string[] = [];
-    if (!selectedAvatar) missing.push('Avatar');
-    if (!username) missing.push('Usuario único');
-    if (!dob) missing.push('Fecha de Nacimiento');
-    if (!country) missing.push('País');
+    if (!selectedAvatar) missing.push(t('auth.avatar'));
+    if (!username) missing.push(t('auth.username_unique'));
+    if (!dob) missing.push(t('auth.dob'));
+    if (!country) missing.push(t('auth.country'));
 
     if (missing.length > 0) {
       setMissingFields(missing);
       setShowValidationModal(true);
-      setLoading(false); 
-      return;
+      setLoading(false); return;
     }
 
     if (!isOldEnough(dob)) {
-      setErrorMsg('Debes tener al menos 14 años para unirte.');
+      setErrorMsg(t('auth.age_requirement'));
       setLoading(false); return;
     }
 
@@ -200,37 +181,36 @@ export default function AuthPage() {
   };
 
   const saveProfileData = async (userId: string) => {
-    const { error } = await supabase.from('profiles').upsert({
-      id: userId,
-      username,
-      full_name: fullName,
-      dob,
-      country,
-      avatar_url: selectedAvatar,
-      font_size: 'text-base',
-      night_mode: false,
-    });
-    if (error) console.error(error);
-    router.push('/home');
+    try {
+      await AuthService.createProfile({
+        id: userId,
+        username,
+        full_name: fullName,
+        dob,
+        country,
+        avatar_url: selectedAvatar,
+      });
+
+      updatePrefs({ 
+        nightMode: false, 
+        fontSize: 'text-base',
+        lastRoute: '/home'
+      });
+
+      router.push('/home');
+    } catch (error) {
+      console.error(error);
+      setErrorMsg(t('auth.profile_error'));
+      setLoading(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
     try {
-      GoogleAuth.initialize();
-      const googleUser = await GoogleAuth.signIn();
-      const idToken = googleUser.authentication.idToken;
-      
-      if (idToken) {
-        const { error } = await supabase.auth.signInWithIdToken({
-          provider: 'google',
-          token: idToken,
-        });
-        
-        if (error) throw error;
-      }
+      await AuthService.signInWithGoogle();
     } catch (error) {
       console.error("Error nativo:", error);
-      setErrorMsg('Error al iniciar sesión con Google.');
+      setErrorMsg(t('auth.google_error'));
     }
   };
 
@@ -241,7 +221,7 @@ export default function AuthPage() {
           initial={{ opacity: 0.5, scale: 0.95 }} 
           animate={{ opacity: 1, scale: 1 }} 
           transition={{ repeat: Infinity, duration: 1, repeatType: "reverse" }}
-          src="/logo-nuevo.png" alt="Cargando Apapacho..." 
+          src="/logo-nuevo.png" alt={t('common.loading')} 
           className="w-48 object-contain drop-shadow-sm" 
         />
       </div>
@@ -270,22 +250,22 @@ export default function AuthPage() {
               type="button" onClick={() => { setView('login'); setErrorMsg(''); }}
               className={`flex-1 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all ${view === 'login' ? 'bg-white dark:bg-[#2A2A2A] text-brand-dark dark:text-brand-gold shadow-sm' : 'text-gray-400 dark:text-gray-500'}`}
             >
-              Iniciar Sesión
+              {t('auth.login_tab')}
             </button>
             <button 
               type="button" onClick={() => { setView('register'); setErrorMsg(''); }}
               className={`flex-1 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all ${view === 'register' ? 'bg-white dark:bg-[#2A2A2A] text-brand-dark dark:text-brand-gold shadow-sm' : 'text-gray-400 dark:text-gray-500'}`}
             >
-              Crear Cuenta
+              {t('auth.register_tab')}
             </button>
           </div>
         )}
 
         {view === 'complete_profile' && (
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-serif italic text-brand-dark dark:text-gray-200 mb-2 transition-colors">¡Casi listo!</h2>
+            <h2 className="text-2xl font-serif italic text-brand-dark dark:text-gray-200 mb-2 transition-colors">{t('auth.almost_done')}</h2>
             <p className="text-[11px] font-bold uppercase tracking-widest text-brand-gold">
-              Solo necesitamos unos datos más para tu cuenta de Google.
+              {t('auth.need_more_data')}
             </p>
           </div>
         )}
@@ -298,11 +278,11 @@ export default function AuthPage() {
 
         {view === 'login' && (
           <form onSubmit={handleLogin} className="space-y-4">
-            <GoogleButtonTop onClick={handleGoogleLogin} />
+            <GoogleButtonTop onClick={handleGoogleLogin} t={t} />
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
               <input 
-                type="email" placeholder="Correo Electrónico" required
+                type="email" placeholder={t('auth.email')} required
                 value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)}
                 className="w-full bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-gold transition-colors text-brand-dark dark:text-gray-200"
               />
@@ -310,54 +290,54 @@ export default function AuthPage() {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
               <input 
-                type="password" placeholder="Contraseña" required
+                type="password" placeholder={t('auth.password')} required
                 value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)}
                 className="w-full bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-gold transition-colors text-brand-dark dark:text-gray-200"
               />
             </div>
             <button disabled={loading} className="w-full bg-brand-gold text-white py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest shadow-lg shadow-brand-gold/20 active:scale-95 transition-all mt-6">
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? t('auth.entering') : t('auth.enter')}
             </button>
           </form>
         )}
 
         {view === 'register' && (
           <form onSubmit={handleRegister} className="space-y-4">
-            <GoogleButtonTop onClick={handleGoogleLogin} />
-            <AvatarSelector selected={selectedAvatar} onSelect={() => setShowAvatarModal(true)} />
+            <GoogleButtonTop onClick={handleGoogleLogin} t={t} />
+            <AvatarSelector selected={selectedAvatar} onSelect={() => setShowAvatarModal(true)} t={t} />
             <div className="grid grid-cols-2 gap-3">
-              <Input placeholder="Usuario" value={username} onChange={setUsername} />
-              <SelectCountry value={country} onChange={setCountry} />
+              <Input placeholder={t('auth.username')} value={username} onChange={setUsername} />
+              <SelectCountry value={country} onChange={setCountry} t={t} />
             </div>
-            <Input placeholder="Nombre Completo" value={fullName} onChange={setFullName} />
-            <DateInput value={dob} onChange={setDob} />
-            <Input placeholder="Correo Electrónico" type="email" value={regEmail} onChange={setRegEmail} />
-            <Input placeholder="Contraseña" type="password" value={regPassword} onChange={setRegPassword} />
-            <Input placeholder="Confirmar Contraseña" type="password" value={confirmPassword} onChange={setConfirmPassword} />
+            <Input placeholder={t('auth.full_name')} value={fullName} onChange={setFullName} />
+            <DateInput value={dob} onChange={setDob} t={t} />
+            <Input placeholder={t('auth.email')} type="email" value={regEmail} onChange={setRegEmail} />
+            <Input placeholder={t('auth.password')} type="password" value={regPassword} onChange={setRegPassword} />
+            <Input placeholder={t('auth.confirm_password')} type="password" value={confirmPassword} onChange={setConfirmPassword} />
             <button disabled={loading} className="w-full bg-brand-dark-blue dark:bg-brand-gold text-white dark:text-brand-dark py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest shadow-lg shadow-brand-dark-blue/20 active:scale-95 transition-all mt-4">
-              {loading ? 'Creando...' : 'Crear Cuenta'}
+              {loading ? t('auth.creating') : t('auth.create_account')}
             </button>
           </form>
         )}
 
         {view === 'complete_profile' && (
           <form onSubmit={handleCompleteProfile} className="space-y-4">
-            <AvatarSelector selected={selectedAvatar} onSelect={() => setShowAvatarModal(true)} />
+            <AvatarSelector selected={selectedAvatar} onSelect={() => setShowAvatarModal(true)} t={t} />
             
             <div className="bg-gray-50 dark:bg-black/30 p-4 rounded-xl border border-gray-100 dark:border-white/5 mb-4 opacity-70 transition-colors">
-              <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest mb-1">Vinculado con Google</p>
+              <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest mb-1">{t('auth.linked_with_google')}</p>
               <p className="text-sm font-bold text-brand-dark dark:text-gray-200">{fullName}</p>
               <p className="text-sm text-gray-500">{regEmail}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Input placeholder="Usuario único" value={username} onChange={setUsername} />
-              <SelectCountry value={country} onChange={setCountry} />
+              <Input placeholder={t('auth.username_unique')} value={username} onChange={setUsername} />
+              <SelectCountry value={country} onChange={setCountry} t={t} />
             </div>
-            <DateInput value={dob} onChange={setDob} />
+            <DateInput value={dob} onChange={setDob} t={t} />
 
             <button disabled={loading} className="w-full bg-brand-gold text-white py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-all mt-4">
-              {loading ? 'Guardando...' : 'Finalizar Registro'}
+              {loading ? t('auth.saving') : t('auth.finish_registration')}
             </button>
           </form>
         )}
@@ -372,7 +352,7 @@ export default function AuthPage() {
             style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
             <div className="flex justify-between items-center mb-8 mt-6">
-              <h2 className="text-2xl font-serif italic text-brand-dark dark:text-brand-gold transition-colors">Elige tu Avatar</h2>
+              <h2 className="text-2xl font-serif italic text-brand-dark dark:text-brand-gold transition-colors">{t('auth.choose_avatar')}</h2>
               <button type="button" onClick={() => setShowAvatarModal(false)} className="p-2 active:scale-90 bg-white dark:bg-black/40 rounded-full shadow-sm"><X size={24} className="text-brand-dark dark:text-gray-300 transition-colors" /></button>
             </div>
             <div className="grid grid-cols-2 gap-4 overflow-y-auto pb-10">
@@ -402,8 +382,8 @@ export default function AuthPage() {
               <button type="button" onClick={() => setShowValidationModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-brand-dark dark:hover:text-gray-200 transition-colors">
                 <X size={20} />
               </button>
-              <h3 className="text-2xl font-serif italic text-brand-dark dark:text-brand-gold mb-2">Faltan datos</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 font-texto">Por favor, completa los siguientes campos para continuar:</p>
+              <h3 className="text-2xl font-serif italic text-brand-dark dark:text-brand-gold mb-2">{t('auth.missing_data')}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 font-texto">{t('auth.missing_data_desc')}</p>
               <ul className="space-y-2 mb-8">
                 {missingFields.map(field => (
                   <li key={field} className="text-[11px] font-bold uppercase tracking-widest text-brand-dark-blue dark:text-brand-gold bg-brand-dark-blue/5 dark:bg-brand-gold/10 px-4 py-3 rounded-xl flex items-center gap-3">
@@ -413,7 +393,7 @@ export default function AuthPage() {
                 ))}
               </ul>
               <button type="button" onClick={() => setShowValidationModal(false)} className="w-full py-4 bg-brand-gold text-white rounded-2xl font-bold text-[12px] uppercase tracking-widest shadow-lg active:scale-95 transition-transform">
-                Entendido
+                {t('auth.understood')}
               </button>
             </motion.div>
           </div>
@@ -424,29 +404,30 @@ export default function AuthPage() {
   );
 }
 
-function GoogleButtonTop({ onClick }: { onClick: () => void }) {
+// COMPONENTES AUXILIARES ACTUALIZADOS PARA RECIBIR `t`
+function GoogleButtonTop({ onClick, t }: { onClick: () => void, t: any }) {
   return (
     <div className="mb-2">
       <button type="button" onClick={onClick} className="w-full flex items-center justify-center gap-3 bg-white dark:bg-[#1A1A1A] border-2 border-gray-100 dark:border-white/5 text-brand-dark dark:text-gray-200 py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest active:scale-95 transition-all shadow-sm hover:bg-gray-50 dark:hover:bg-white/5">
-        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" /> Continuar con Google
+        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" /> {t('auth.continue_with_google')}
       </button>
       <div className="relative flex items-center py-6">
         <div className="flex-grow border-t border-gray-200 dark:border-white/10 transition-colors"></div>
-        <span className="flex-shrink-0 mx-4 text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-widest font-bold transition-colors">O usa tu correo</span>
+        <span className="flex-shrink-0 mx-4 text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-widest font-bold transition-colors">{t('auth.or_use_email')}</span>
         <div className="flex-grow border-t border-gray-200 dark:border-white/10 transition-colors"></div>
       </div>
     </div>
   );
 }
 
-function AvatarSelector({ selected, onSelect }: { selected: string, onSelect: () => void }) {
+function AvatarSelector({ selected, onSelect, t }: { selected: string, onSelect: () => void, t: any }) {
   return (
     <div className="flex flex-col items-center mb-6">
       <div className="relative w-24 h-24 rounded-full shadow-inner border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-black/30 flex items-center justify-center overflow-hidden mb-3 transition-colors">
         {selected ? <img src={selected} alt="Avatar" className="w-full h-full object-cover" /> : <User size={32} className="text-gray-300 dark:text-gray-600" />}
       </div>
       <button type="button" onClick={onSelect} className="text-[10px] font-bold uppercase tracking-widest text-brand-gold bg-brand-gold/10 px-4 py-2 rounded-full active:scale-95 transition-transform">
-        {selected ? 'Cambiar Avatar' : 'Elegir Avatar'}
+        {selected ? t('auth.change_avatar') : t('auth.choose_avatar')}
       </button>
     </div>
   );
@@ -460,12 +441,12 @@ function Input({ placeholder, type = "text", value, onChange }: any) {
   );
 }
 
-function DateInput({ value, onChange }: any) {
+function DateInput({ value, onChange, t }: any) {
   return (
     <div className="relative">
       {!value && (
         <label className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-widest pointer-events-none transition-colors">
-          Nacimiento
+          {t('auth.dob_placeholder')}
         </label>
       )}
       <input type="date" value={value} onChange={(e) => onChange(e.target.value)}
@@ -477,51 +458,16 @@ function DateInput({ value, onChange }: any) {
   );
 }
 
-function SelectCountry({ value, onChange }: { value: string, onChange: (val: string) => void }) {
-  const countries = [
-    "Afganistán", "Albania", "Alemania", "Andorra", "Angola", "Antigua y Barbuda", 
-    "Arabia Saudita", "Argelia", "Argentina", "Armenia", "Australia", "Austria", 
-    "Azerbaiyán", "Bahamas", "Bangladés", "Barbados", "Baréin", "Bélgica", "Belice", 
-    "Benín", "Bielorrusia", "Birmania", "Bolivia", "Bosnia y Herzegovina", "Botsuana", 
-    "Brasil", "Brunéi", "Bulgaria", "Burkina Faso", "Burundi", "Bután", "Cabo Verde", 
-    "Camboya", "Camerún", "Canadá", "Catar", "Chad", "Chile", "China", "Chipre", 
-    "Ciudad del Vaticano", "Colombia", "Comoras", "Corea del Norte", "Corea del Sur", 
-    "Costa de Marfil", "Costa Rica", "Croacia", "Cuba", "Dinamarca", "Dominica", 
-    "Ecuador", "Egipto", "El Salvador", "Emiratos Árabes Unidos", "Eritrea", 
-    "Eslovaquia", "Eslovenia", "España", "Estados Unidos", "Estonia", "Etiopía", 
-    "Fiyi", "Filipinas", "Finlandia", "Francia", "Gabon", "Gambia", "Georgia", 
-    "Ghana", "Granada", "Grecia", "Guatemala", "Guinea", "Guinea-Bisáu", 
-    "Guinea Ecuatorial", "Guyana", "Haití", "Honduras", "Hungría", "India", 
-    "Indonesia", "Irak", "Irán", "Irlanda", "Islandia", "Islas Marshall", 
-    "Islas Salomón", "Israel", "Italia", "Jamaica", "Japón", "Jordania", 
-    "Kazajistán", "Kenia", "Kiribati", "Kuwait", "Kyrgyzstán", "Laos", "Letonia", 
-    "Líbano", "Lesoto", "Liberia", "Libia", "Liechtenstein", "Lituania", 
-    "Luxemburgo", "Macedonia del Norte", "Madagascar", "Malasia", "Malaui", 
-    "Maldivas", "Mali", "Malta", "Mauritania", "Mauricio", "México", "Moldavia", 
-    "Mónaco", "Mongolia", "Montenegro", "Marruecos", " Mozambique", "Myanmar", 
-    "Namibia", "Nauru", "Nepal", "Nicaragua", "Níger", "Nigeria", "Noruega", 
-    "Nueva Zelanda", "Omán", "Países Bajos", "Pakistán", "Palau", "Panamá", 
-    "Papúa Nueva Guinea", "Paraguay", "Perú", "Polonia", "Portugal", "Qatar", 
-    "Reino Unido", "República Centroafricana", "República Checa", "República Dominicana", 
-    "Ruanda", "Rumania", "Rusia", "San Cristóbal y Nieves", "San Marino", 
-    "San Vicente y las Granadinas", "Santo Tomé y Príncipe", "Santa Lucía", "Senegal", 
-    "Serbia", "Seychelles", "Sierra Leona", "Singapur", "Siria", "Somalia", 
-    "Sudáfrica", "Sudán", "Sudán del Sur", "Surinam", "Suecia", "Suiza", "Tailandia", 
-    "Tanzania", "Tayikistán", "Timor Oriental", "Togo", "Tonga", "Trinidad y Tobago", 
-    "Túnez", "Turkmenistán", "Turquía", "Tuvalu", "Ucrania", "Uganda", "Uruguay", 
-    "Uzbekistán", "Vanuatu", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabue"
-  ];
-
+function SelectCountry({ value, onChange, t }: { value: string, onChange: (val: string) => void, t: any }) {
+  const countries = ["Afganistán", "Albania", "Alemania", "Andorra", "Argentina", "Brasil", "Chile", "Colombia", "España", "Estados Unidos", "México", "Perú", "Portugal", "Uruguay", "Venezuela"]; 
   return (
     <select 
       value={value} 
       onChange={(e) => onChange(e.target.value)}
       className={`w-full bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-brand-gold transition-colors appearance-none ${!value ? 'text-gray-400 dark:text-gray-500' : 'text-brand-dark dark:text-gray-200'}`}
     >
-      <option value="" disabled hidden>Selecciona tu país</option>
-      {countries.map(c => (
-        <option key={c} value={c} className="text-brand-dark">{c}</option>
-      ))}
+      <option value="" disabled hidden>{t('auth.country_placeholder')}</option>
+      {countries.map(c => <option key={c} value={c} className="text-brand-dark">{c}</option>)}
     </select>
   );
 }

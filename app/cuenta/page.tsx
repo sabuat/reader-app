@@ -6,6 +6,11 @@ import { useRouter } from 'next/navigation';
 import { LogOut, Moon, Sun, Type, Check, X, Edit3, KeyRound, Save } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
+// 🌟 IMPORTAMOS LOS SERVICIOS Y EL TRADUCTOR
+import { AuthService } from '@/services/authService';
+import { updatePrefs } from '@/lib/preferences';
+import { useLanguage } from '@/hooks/useLanguage';
+
 const AVATARS = [
   '/avatar/avatar-1.png',
   '/avatar/avatar-2.png',
@@ -24,6 +29,10 @@ const FONT_SIZES = [
 
 export default function CuentaPage() {
   const router = useRouter();
+  
+  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  const { t } = useLanguage();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -40,20 +49,17 @@ export default function CuentaPage() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const session = await AuthService.getSession();
+      const user = session?.user;
       
       if (user) {
         setUserId(user.id);
         setUserEmail(user.email ?? '');
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
+        const profile = await AuthService.getProfile(user.id);
 
         if (profile) {
-          setUsername(profile.username || 'Usuario');
+          setUsername(profile.username || t('account.not_specified'));
           setSelectedAvatar(profile.avatar_url || AVATARS[0]);
           setNightMode(profile.night_mode || false);
           setFontSize(profile.font_size || 'text-base');
@@ -62,7 +68,7 @@ export default function CuentaPage() {
       setLoading(false);
     }
     loadProfile();
-  }, []);
+  }, [t]);
 
   const handleSave = async () => {
     if (!userId) return;
@@ -81,9 +87,11 @@ export default function CuentaPage() {
 
       if (error) throw error;
 
-      localStorage.setItem('apapacho_avatar', selectedAvatar);
-      localStorage.setItem('apapacho_nightMode', String(nightMode));
-      localStorage.setItem('apapacho_fontSize', fontSize);
+      // 🌟 REEMPLAZAMOS LOCALSTORAGE POR UPDATEPREFS
+      updatePrefs({ 
+        nightMode: nightMode, 
+        fontSize: fontSize 
+      });
 
       // Le avisamos al sistema nativo que cambie el tema sin recargar
       if (nightMode) {
@@ -92,11 +100,11 @@ export default function CuentaPage() {
         document.documentElement.classList.remove('dark');
       }
 
-      setMessage('¡Configuración guardada con éxito!');
+      setMessage(t('account.success_save'));
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       console.error(err);
-      setMessage('Error al guardar. Intenta de nuevo.');
+      setMessage(t('account.error_save'));
     } finally {
       setSaving(false);
     }
@@ -106,15 +114,15 @@ export default function CuentaPage() {
     if (!userEmail) return;
     const { error } = await supabase.auth.resetPasswordForEmail(userEmail);
     if (error) {
-      setMessage('Error al enviar el correo de recuperación.');
+      setMessage(t('account.error_email'));
     } else {
-      setMessage('Te enviamos un correo para cambiar tu contraseña.');
+      setMessage(t('account.success_email'));
     }
     setTimeout(() => setMessage(''), 4000);
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await AuthService.signOut();
     router.push('/'); 
   };
 
@@ -125,8 +133,8 @@ export default function CuentaPage() {
   );
 
   return (
-    // AQUÍ AGREGAMOS dark:bg-[#121212] PARA EL FONDO PRINCIPAL
-    <div className="min-h-screen bg-brand-bg dark:bg-[#121212] transition-colors duration-500 px-6 pb-32 pt-12 relative overflow-hidden">
+    // AQUÍ MANTENEMOS TU CÓDIGO INTACTO
+    <div className="min-h-[100dvh] bg-brand-bg dark:bg-[#121212] transition-colors duration-500 px-6 pb-8 pt-12 relative overflow-hidden">
       
       <header className="mb-10 text-center flex flex-col items-center relative">
         <div className="relative w-28 h-28 rounded-full mb-3 shadow-lg border-2 border-brand-gold/50 overflow-hidden bg-brand-blue-bg">
@@ -138,26 +146,26 @@ export default function CuentaPage() {
           className="flex items-center gap-2 bg-brand-gold/10 text-brand-gold px-4 py-2 rounded-full active:scale-95 transition-transform mb-6"
         >
           <Edit3 size={14} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Cambiar Avatar</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest">{t('account.change_avatar')}</span>
         </button>
 
-        <h1 className="text-3xl font-serif italic text-brand-dark dark:text-brand-gold mb-1 transition-colors">Mi Perfil</h1>
+        <h1 className="text-3xl font-serif italic text-brand-dark dark:text-brand-gold mb-1 transition-colors">{t('account.title')}</h1>
       </header>
 
       <div className="mb-8 space-y-4">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-dark/50 dark:text-gray-400 ml-2 transition-colors">Datos Personales</h2>
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-dark/50 dark:text-gray-400 ml-2 transition-colors">{t('account.personal_data')}</h2>
         
         {/* TARJETA CON FONDO BLANCO QUE SE VUELVE GRIS OSCURO */}
         <div className="bg-white dark:bg-[#1A1A1A] rounded-3xl p-5 shadow-sm border border-brand-gold/5 dark:border-brand-gold/10 space-y-5 transition-colors duration-500">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-gold mb-2">Nombre de Usuario</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-gold mb-2">{t('account.username')}</label>
             <div className="w-full bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-xl py-3 px-4 text-brand-dark/70 dark:text-gray-300 font-bold text-sm transition-colors">
-              {username || 'No especificado'}
+              {username || t('account.not_specified')}
             </div>
           </div>
           
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-gold mb-2">Correo Electrónico</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-gold mb-2">{t('account.email')}</label>
             <div className="w-full bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-xl py-3 px-4 text-brand-dark/70 dark:text-gray-300 font-bold text-sm transition-colors">
               {userEmail}
             </div>
@@ -167,20 +175,20 @@ export default function CuentaPage() {
             onClick={handlePasswordReset}
             className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-brand-dark dark:text-gray-300 hover:text-brand-gold dark:hover:text-brand-gold transition-colors pt-2"
           >
-            <KeyRound size={16} /> Cambiar Contraseña
+            <KeyRound size={16} /> {t('account.change_password')}
           </button>
         </div>
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-dark/50 dark:text-gray-400 mb-4 ml-2 transition-colors">Preferencias de Lectura</h2>
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-dark/50 dark:text-gray-400 mb-4 ml-2 transition-colors">{t('account.reading_prefs')}</h2>
         <div className="bg-white dark:bg-[#1A1A1A] rounded-3xl p-2 shadow-sm border border-brand-gold/5 dark:border-brand-gold/10 transition-colors duration-500">
           
           <div className="p-4 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 text-brand-dark/70 dark:text-gray-300 transition-colors">
                 <Type size={20} />
-                <span className="font-bold text-[12px] uppercase tracking-widest">Tamaño</span>
+                <span className="font-bold text-[12px] uppercase tracking-widest">{t('account.size')}</span>
               </div>
               <div className="flex gap-2">
                 {FONT_SIZES.map((fs) => (
@@ -199,9 +207,9 @@ export default function CuentaPage() {
             </div>
 
             <div className="bg-brand-blue-bg/20 dark:bg-black/20 border border-brand-dark-blue/10 dark:border-white/5 py-5 px-4 rounded-2xl text-center flex flex-col items-center justify-center min-h-[100px] mt-2 transition-colors">
-              <span className="text-[9px] uppercase tracking-[0.3em] text-gray-400 block mb-3 font-bold">Vista Previa</span>
+              <span className="text-[9px] uppercase tracking-[0.3em] text-gray-400 block mb-3 font-bold">{t('account.preview')}</span>
               <p className={`font-texto transition-all duration-300 text-brand-dark-blue dark:text-brand-gold ${fontSize}`}>
-                Leer es un Apapacho
+                {t('account.preview_text')}
               </p>
             </div>
           </div>
@@ -211,7 +219,7 @@ export default function CuentaPage() {
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3 text-brand-dark/70 dark:text-gray-300 transition-colors">
               {nightMode ? <Moon size={20} /> : <Sun size={20} />}
-              <span className="font-bold text-[12px] uppercase tracking-widest">Lectura en Modo Nocturno</span>
+              <span className="font-bold text-[12px] uppercase tracking-widest">{t('account.night_mode')}</span>
             </div>
             <button 
               onClick={() => setNightMode(!nightMode)}
@@ -236,14 +244,14 @@ export default function CuentaPage() {
         className="w-full flex items-center justify-center gap-2 bg-brand-gold text-white py-4 rounded-2xl font-bold text-[12px] uppercase tracking-widest shadow-lg shadow-brand-gold/20 active:scale-95 transition-all mb-6"
       >
         <Save size={18} />
-        {saving ? 'Guardando...' : 'Guardar Configuración'}
+        {saving ? t('account.saving') : t('account.save_config')}
       </button>
 
       <button 
         onClick={handleSignOut}
         className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-[11px] uppercase tracking-widest text-red-400 dark:text-red-400 border border-red-100 dark:border-red-900/50 bg-white dark:bg-[#1A1A1A] active:scale-95 transition-all"
       >
-        <LogOut size={16} /> Cerrar Sesión
+        <LogOut size={16} /> {t('menu.sign_out')}
       </button>
 
       <AnimatePresence>
@@ -253,7 +261,7 @@ export default function CuentaPage() {
             className="fixed inset-0 z-50 bg-brand-bg dark:bg-[#121212] transition-colors duration-500 flex flex-col p-6"
           >
             <div className="flex justify-between items-center mb-8 mt-6">
-              <h2 className="text-2xl font-serif italic text-brand-dark dark:text-brand-gold">Elige tu Avatar</h2>
+              <h2 className="text-2xl font-serif italic text-brand-dark dark:text-brand-gold">{t('auth.choose_avatar')}</h2>
               <button onClick={() => setShowAvatarModal(false)} className="p-2 active:scale-90 bg-white dark:bg-black/40 rounded-full shadow-sm">
                 <X size={24} className="text-brand-dark dark:text-gray-300" />
               </button>
@@ -279,7 +287,7 @@ export default function CuentaPage() {
             </div>
             
             <p className="text-center mt-auto pb-10 text-[10px] uppercase tracking-widest text-brand-dark/40 dark:text-gray-500 font-bold">
-              Toca un avatar para seleccionarlo.
+              {t('account.touch_avatar')}
             </p>
           </motion.div>
         )}
