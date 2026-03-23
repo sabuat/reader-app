@@ -9,11 +9,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Capacitor } from '@capacitor/core';
 import { AdMob } from '@capacitor-community/admob';
-
-// 🌟 IMPORTAMOS NUESTRAS NUEVAS PREFERENCIAS CENTRALIZADAS
+import { Chapter } from '@/lib/types';
+import { AuthService } from '@/services/authService';
 import { getPrefs, updatePrefs } from '@/lib/preferences';
-
-// 🌟 IMPORTAMOS EL TRADUCTOR
 import { useLanguage } from '@/hooks/useLanguage';
 
 function ReaderContent() {
@@ -22,12 +20,14 @@ function ReaderContent() {
   const router = useRouter();
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [chapters, setChapters] = useState<any[]>([]);
+  
+  // FIX: Tipado estricto para los capítulos
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [completedChapters, setCompletedChapters] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados ahora controlados por el gestor de preferencias
+  // Estados controlados por el gestor de preferencias
   const [fontSize, setFontSize] = useState('text-lg');
   const [nightMode, setNightMode] = useState(false);
 
@@ -38,7 +38,7 @@ function ReaderContent() {
   const [speechSupported, setSpeechSupported] = useState(false);
   const [showChapterMenu, setShowChapterMenu] = useState(false);
 
-  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  // INICIALIZAMOS EL TRADUCTOR
   const { t } = useLanguage();
 
   const safeCancelSpeech = () => {
@@ -101,7 +101,10 @@ function ReaderContent() {
       setLoading(true);
 
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        // FIX: Usamos AuthService centralizado
+        const session = await AuthService.getSession();
+        const user = session?.user;
+        
         if (!user) {
           router.push('/');
           return;
@@ -121,7 +124,7 @@ function ReaderContent() {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (chs) setChapters(chs);
+        if (chs) setChapters(chs as Chapter[]);
 
         if (prog) {
           setCompletedChapters(prog.completed_chapters || []);
@@ -150,13 +153,13 @@ function ReaderContent() {
     const newMode = !nightMode;
     setNightMode(newMode);
     
-    // 🌟 Guardamos en nuestra caja única de preferencias
+    // Guardamos en nuestra caja única de preferencias
     updatePrefs({ nightMode: newMode });
   };
 
   const handleSpeak = () => {
     if (!speechSupported) {
-      // 🌟 ALERTA TRADUCIDA
+      // ALERTA TRADUCIDA
       alert(t('reader.speech_alert'));
       return;
     }
@@ -268,7 +271,7 @@ function ReaderContent() {
   if (chapters.length === 0) return (
     <div className={`flex flex-col items-center justify-center h-screen px-10 text-center ${nightMode ? 'bg-[#121212] text-white' : 'bg-[#F9F9F7]'}`}>
       <BookOpen size={48} className="text-brand-gold/20 mb-6" />
-      {/* 🌟 TEXTO TRADUCIDO Y EN MAYÚSCULAS */}
+      {/* TEXTO TRADUCIDO Y EN MAYÚSCULAS */}
       <h2 className="font-serif italic text-2xl text-brand-gold mb-4">{t('common.coming_soon').toUpperCase()}</h2>
       <Link href="/home" className="inline-block border-b-2 border-brand-gold text-brand-gold text-[11px] font-bold uppercase tracking-[0.2em] pb-1">{t('common.go_back')}</Link>
     </div>
@@ -288,12 +291,12 @@ function ReaderContent() {
       >
         <Link href="/home" className="flex items-center gap-2 text-brand-gold active:scale-90 transition-transform">
           <ChevronLeft size={20} />
-          {/* 🌟 TEXTO TRADUCIDO */}
+          {/* TEXTO TRADUCIDO */}
           <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{t('common.close')}</span>
         </Link>
         <div className="flex flex-col items-end">
           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.3em]">
-            {/* 🌟 TEXTO TRADUCIDO */}
+            {/* TEXTO TRADUCIDO */}
             {t('reader.chapter')} {currentChapter.chapter_number} {t('common.of')} {chapters.length}
           </span>
           {completedChapters.includes(currentChapter.chapter_number) && (

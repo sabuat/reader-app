@@ -8,6 +8,7 @@ export interface Profile {
   avatar_url: string;
   font_size?: string;
   night_mode?: boolean;
+  updated_at?: string;
 }
 
 // Define exactamente qué forma tiene un Libro
@@ -21,6 +22,8 @@ export interface Book {
   published: boolean;
   ad_views?: number;
   description?: string;
+  identificador?: number; // FIX: Agregado para el ordenamiento del catálogo
+  new?: boolean;          // FIX: Agregado para el modal de Novedades
 }
 
 // Define exactamente qué forma tiene un Capítulo

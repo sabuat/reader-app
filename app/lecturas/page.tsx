@@ -3,20 +3,23 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, Clock } from 'lucide-react';
 import Link from 'next/link';
-
-// 🌟 NUEVOS SERVICIOS Y COMPONENTES UI
 import { AuthService } from '@/services/authService';
 import { BookService } from '@/services/bookService';
 import { EmptyState } from '@/components/ui/StateComponents';
-
-// 🌟 IMPORTAMOS EL TRADUCTOR
 import { useLanguage } from '@/hooks/useLanguage';
+import { Book, ReadingProgress } from '@/lib/types';
+
+// Tipamos estrictamente el objeto combinado que devuelve Supabase
+type ReadingItem = ReadingProgress & {
+  books: Book | Book[];
+};
 
 export default function MisLecturasPage() {
-  const [readings, setReadings] = useState<any[]>([]);
+  // FIX: Tipado estricto en el estado en lugar de 'any[]'
+  const [readings, setReadings] = useState<ReadingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  // INICIALIZAMOS EL TRADUCTOR
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -32,9 +35,9 @@ export default function MisLecturasPage() {
           return;
         }
 
-        // 🌟 LLAMADA LIMPIA USANDO EL SERVICIO
+        // LLAMADA LIMPIA USANDO EL SERVICIO
         const data = await BookService.getMyReadings(user.id);
-        setReadings(data || []);
+        setReadings((data as unknown as ReadingItem[]) || []);
       } catch (err) {
         console.error("Error cargando lecturas:", err);
       } finally {
@@ -53,13 +56,13 @@ export default function MisLecturasPage() {
   return (
     <div className="min-h-[100dvh] bg-brand-bg dark:bg-[#121212] transition-colors duration-500 px-6 pb-24 overflow-x-hidden">
       <header className="pt-10 pb-6 border-b border-brand-gold/10 dark:border-brand-gold/20 mb-6 transition-colors">
-        {/* 🌟 TÍTULO TRADUCIDO */}
+        {/* TÍTULO TRADUCIDO */}
         <h1 className="text-xl font-serif italic text-brand-dark dark:text-brand-gold transition-colors">
           {t('menu.readings')}
         </h1>
       </header>
 
-      {/* 🌟 ESTADO VACÍO TRADUCIDO */}
+      {/* ESTADO VACÍO TRADUCIDO */}
       {readings.length === 0 ? (
         <EmptyState 
           title={t('common.no_readings')} 
@@ -72,7 +75,8 @@ export default function MisLecturasPage() {
             const book = Array.isArray(item.books) ? item.books[0] : item.books;
             if (!book) return null;
 
-            const totalChapters = book.chapters || 1; 
+            // FIX: Tipado seguro para propiedades dinámicas de base de datos
+            const totalChapters = (book as Book & { chapters?: number }).chapters || 1; 
             const completedCount = item.completed_chapters ? item.completed_chapters.length : 0;
             const progressPercent = Math.min(Math.round((completedCount / totalChapters) * 100), 100);
 
@@ -86,7 +90,7 @@ export default function MisLecturasPage() {
                   {book.cover_url ? (
                     <img 
                       src={book.cover_url} 
-                      alt={book.title} 
+                      alt={book.title || 'Libro'} 
                       className="w-full h-auto rounded bg-brand-blue-bg dark:bg-black/50 shadow-sm" 
                     />
                   ) : (
@@ -98,8 +102,8 @@ export default function MisLecturasPage() {
                 
                 <div className="flex flex-col justify-between py-1 flex-grow">
                   <div>
-                    <h3 className="font-serif italic text-lg text-brand-dark dark:text-gray-200 leading-tight mb-1 line-clamp-2 transition-colors">{book.title}</h3>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-gold">{book.author}</p>
+                    <h3 className="font-serif italic text-lg text-brand-dark dark:text-gray-200 leading-tight mb-1 line-clamp-2 transition-colors">{book.title || 'Libro sin título'}</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-gold">{book.author || ''}</p>
                   </div>
 
                   <div className="space-y-3 mt-2">

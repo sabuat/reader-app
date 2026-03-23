@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Mail, Lock, User, Check, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase'; 
 
-// 🌟 IMPORTAMOS NUESTROS NUEVOS SERVICIOS, PREFERENCIAS Y EL TRADUCTOR
 import { AuthService } from '@/services/authService';
 import { getPrefs, updatePrefs } from '@/lib/preferences';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -18,8 +17,6 @@ const AVATARS = [
 
 export default function AuthPage() {
   const router = useRouter();
-  
-  // 🌟 INICIALIZAMOS EL TRADUCTOR
   const { t } = useLanguage();
   
   const [isCheckingSession, setIsCheckingSession] = useState(true);
@@ -47,7 +44,7 @@ export default function AuthPage() {
   useEffect(() => {
     let isMounted = true;
 
-    const checkCurrentSession = async () => {
+    const initSession = async () => {
       try {
         const session = await AuthService.getSession();
         
@@ -55,10 +52,9 @@ export default function AuthPage() {
           const profile = await AuthService.getProfile(session.user.id);
 
           if (profile) {
-            const { lastRoute } = getPrefs(); 
-            router.push(lastRoute);
-            
-            setTimeout(() => { if (isMounted) setIsCheckingSession(false); }, 1000);
+            const prefs = getPrefs(); 
+            router.push(prefs.lastRoute || '/home');
+            // No cambiamos isCheckingSession a false aquí para evitar destellos visuales mientras redirige
             return; 
           } else {
             setAuthUserId(session.user.id);
@@ -68,29 +64,25 @@ export default function AuthPage() {
           }
         }
       } catch (error) {
-        console.error("Caché corrupta detectada, forzando limpieza...", error);
+        console.error("Error al verificar sesión o caché corrupta:", error);
         await AuthService.signOut(); 
+      } finally {
+        if (isMounted) setIsCheckingSession(false);
       }
-      
-      if (isMounted) setIsCheckingSession(false); 
     };
 
-    checkCurrentSession();
-
-    const fallbackTimer = setTimeout(() => {
-      if (isMounted) setIsCheckingSession(false);
-    }, 7000);
+    initSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && isMounted) {
+      // Escuchamos SIGNED_IN para casos como redirecciones de Google Auth
+      if (event === 'SIGNED_IN' && session?.user && isMounted) {
         setIsCheckingSession(true); 
-        checkCurrentSession();
+        initSession();
       }
     });
 
     return () => { 
       isMounted = false;
-      clearTimeout(fallbackTimer);
       authListener.subscription.unsubscribe(); 
     };
   }, [router]);

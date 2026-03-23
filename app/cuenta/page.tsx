@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { LogOut, Moon, Sun, Type, Check, X, Edit3, KeyRound, Save } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// 🌟 IMPORTAMOS LOS SERVICIOS Y EL TRADUCTOR
+// IMPORTAMOS LOS SERVICIOS Y EL TRADUCTOR
 import { AuthService } from '@/services/authService';
 import { updatePrefs } from '@/lib/preferences';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -30,7 +30,7 @@ const FONT_SIZES = [
 export default function CuentaPage() {
   const router = useRouter();
   
-  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  // INICIALIZAMOS EL TRADUCTOR
   const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,8 @@ export default function CuentaPage() {
     setMessage('');
 
     try {
-      const { error } = await supabase.from('profiles').upsert({
+      // Centralizamos la lógica de base de datos usando nuestro servicio unificado
+      await AuthService.createProfile({
         id: userId,
         username: username, 
         avatar_url: selectedAvatar,
@@ -85,9 +86,7 @@ export default function CuentaPage() {
         updated_at: new Date().toISOString(),
       });
 
-      if (error) throw error;
-
-      // 🌟 REEMPLAZAMOS LOCALSTORAGE POR UPDATEPREFS
+      //  Persistencia limpia y centralizada
       updatePrefs({ 
         nightMode: nightMode, 
         fontSize: fontSize 
@@ -133,8 +132,7 @@ export default function CuentaPage() {
   );
 
   return (
-    // AQUÍ MANTENEMOS TU CÓDIGO INTACTO
-    <div className="min-h-[100dvh] bg-brand-bg dark:bg-[#121212] transition-colors duration-500 px-6 pb-8 pt-12 relative overflow-hidden">
+    <div className="min-h-screen bg-brand-bg dark:bg-[#121212] transition-colors duration-500 px-6 pb-32 pt-12 relative overflow-hidden">
       
       <header className="mb-10 text-center flex flex-col items-center relative">
         <div className="relative w-28 h-28 rounded-full mb-3 shadow-lg border-2 border-brand-gold/50 overflow-hidden bg-brand-blue-bg">
@@ -155,7 +153,6 @@ export default function CuentaPage() {
       <div className="mb-8 space-y-4">
         <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-dark/50 dark:text-gray-400 ml-2 transition-colors">{t('account.personal_data')}</h2>
         
-        {/* TARJETA CON FONDO BLANCO QUE SE VUELVE GRIS OSCURO */}
         <div className="bg-white dark:bg-[#1A1A1A] rounded-3xl p-5 shadow-sm border border-brand-gold/5 dark:border-brand-gold/10 space-y-5 transition-colors duration-500">
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-gold mb-2">{t('account.username')}</label>

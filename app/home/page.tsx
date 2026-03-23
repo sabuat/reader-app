@@ -4,7 +4,9 @@ import { BookOpen, X, Filter, FilterX } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import BookDetailSheet from '@/components/BookDetailSheet';
 
-// 🌟 IMPORTAMOS LAS NUEVAS FUNCIONALIDADES
+// 🌟 IMPORTAMOS TIPOS ESTRICTOS
+import { Book } from '@/lib/types';
+
 import { BookService } from '@/services/bookService';
 import { useLanguage } from '@/hooks/useLanguage';
 
@@ -17,11 +19,12 @@ const GENRES = [
 const LANGUAGES = ['EN', 'ES', 'IT', 'PT'];
 
 export default function BookGallery() {
-  const [books, setBooks] = useState<any[]>([]);
-  const [selectedBook, setSelectedBook] = useState<any>(null);
+  // 🌟 FIX: Tipos estrictos en lugar de 'any'
+  const [books, setBooks] = useState<Book[]>([]);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [newReleaseBook, setNewReleaseBook] = useState<any>(null);
+  const [newReleaseBook, setNewReleaseBook] = useState<Book | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
 
   // Estados para los filtros y el panel
@@ -30,19 +33,17 @@ export default function BookGallery() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [selectedAuthor, setSelectedAuthor] = useState<string>('');
 
-  // 🌟 INICIALIZAMOS EL TRADUCTOR
   const { t } = useLanguage();
 
   useEffect(() => {
     async function fetchBooks() {
       try {
-        // 🌟 USAMOS TU BOOKSERVICE (que ya tiene el order por identificador)
         const data = await BookService.getAllBooks();
 
         if (data && data.length > 0) {
           setBooks(data);
           
-          const promotedBook = data.find((b: any) => b.new === true);
+          const promotedBook = data.find((b: Book) => b.new === true);
           
           if (promotedBook && !localStorage.getItem(`apapacho_new_seen_${promotedBook.id}`)) {
             setNewReleaseBook(promotedBook);
@@ -60,8 +61,8 @@ export default function BookGallery() {
     fetchBooks();
   }, []);
 
-  // 1. Extraemos los autores únicos de los libros para el filtro
-  const authors = Array.from(new Set(books.map(b => b.author).filter(Boolean))) as string[];
+  // 1. Extraemos los autores únicos de los libros para el filtro (protegiendo contra null)
+  const authors = Array.from(new Set(books.map(b => b.author || '').filter(Boolean))) as string[];
 
   // 2. Aplicamos los filtros
   const filteredBooks = books.filter((book) => {
@@ -110,7 +111,7 @@ export default function BookGallery() {
               {book.cover_url ? (
                 <img 
                   src={book.cover_url} 
-                  alt={book.title} 
+                  alt={book.title || 'Libro'} 
                   className={`w-full h-full object-cover ${!book.published ? 'opacity-[0.45]' : ''}`} 
                 />
               ) : (
@@ -234,7 +235,7 @@ export default function BookGallery() {
               
               <div className="w-32 aspect-[5/8] mx-auto rounded-xl overflow-hidden shadow-lg mb-6 border border-brand-gold/20 dark:border-brand-gold/30 transition-colors">
                 {newReleaseBook.cover_url ? (
-                  <img src={newReleaseBook.cover_url} alt={newReleaseBook.title} className={`w-full h-full object-cover ${!newReleaseBook.published ? 'opacity-[0.45]' : ''}`} />
+                  <img src={newReleaseBook.cover_url} alt={newReleaseBook.title || 'Libro'} className={`w-full h-full object-cover ${!newReleaseBook.published ? 'opacity-[0.45]' : ''}`} />
                 ) : (
                   <div className="w-full h-full bg-brand-blue-bg dark:bg-black/50 flex items-center justify-center transition-colors">
                     <BookOpen className="text-brand-dark/20 dark:text-gray-600" size={32} />

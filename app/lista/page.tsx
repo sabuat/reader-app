@@ -4,15 +4,11 @@ import { useEffect, useState } from 'react';
 import { Filter, FilterX, X, Bookmark } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import BookDetailSheet from '@/components/BookDetailSheet';
-
-// 🌟 NUEVOS SERVICIOS Y COMPONENTES UI
 import { AuthService } from '@/services/authService';
 import { BookService } from '@/services/bookService';
 import { Book } from '@/lib/types';
 import { BookCard } from '@/components/ui/BookCard';
 import { BookCardSkeleton, EmptyState } from '@/components/ui/StateComponents';
-
-// 🌟 IMPORTAMOS EL TRADUCTOR
 import { useLanguage } from '@/hooks/useLanguage';
 
 const GENRES = [
@@ -23,7 +19,8 @@ const GENRES = [
 const LANGUAGES = ['EN', 'ES', 'IT', 'PT'];
 
 export default function MiListaPage() {
-  const [savedBooks, setSavedBooks] = useState<any[]>([]);
+  // FIX: Estado estrictamente tipado y limpio
+  const [savedBooks, setSavedBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
@@ -32,7 +29,7 @@ export default function MiListaPage() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [selectedAuthor, setSelectedAuthor] = useState<string>('');
 
-  // 🌟 INICIALIZAMOS EL TRADUCTOR
+  // INICIALIZAMOS EL TRADUCTOR
   const { t } = useLanguage();
 
   const fetchMyList = async (isSilentRefresh = false) => {
@@ -47,7 +44,15 @@ export default function MiListaPage() {
       }
 
       const data = await BookService.getMyList(session.user.id);
-      if (data) setSavedBooks(data);
+      
+      if (data) {
+        // FIX: Formateamos y validamos la data cruda antes de guardarla en el estado
+        const formatted = data
+          .map((item: any) => Array.isArray(item.books) ? item.books[0] : item.books)
+          .filter(Boolean) as Book[];
+        
+        setSavedBooks(formatted);
+      }
 
     } catch (error) {
       console.error("Error al cargar Mi Lista:", error);
@@ -60,13 +65,10 @@ export default function MiListaPage() {
     fetchMyList();
   }, []);
 
-  const formattedBooks: Book[] = savedBooks
-    .map(item => Array.isArray(item.books) ? item.books[0] : item.books)
-    .filter(Boolean) as Book[];
+  // FIX: Protección contra valores null al extraer autores
+  const authors = Array.from(new Set(savedBooks.map(b => b.author || '').filter(Boolean))) as string[];
 
-  const authors = Array.from(new Set(formattedBooks.map(b => b.author))) as string[];
-
-  const filteredBooks = formattedBooks.filter((book) => {
+  const filteredBooks = savedBooks.filter((book) => {
     const matchGenre = selectedGenre ? book.genre === selectedGenre : true;
     const matchLanguage = selectedLanguage ? book.language === selectedLanguage : true;
     const matchAuthor = selectedAuthor ? book.author === selectedAuthor : true;
@@ -79,7 +81,7 @@ export default function MiListaPage() {
   return (
     <div className="min-h-[100dvh] bg-brand-bg dark:bg-[#121212] transition-colors duration-500 px-6 pb-24 overflow-x-hidden relative">
       <header className="pt-10 pb-6 border-b border-brand-gold/10 dark:border-brand-gold/20 mb-6 flex justify-between items-end transition-colors">
-        {/* 🌟 TÍTULO TRADUCIDO */}
+        {/*  TÍTULO TRADUCIDO */}
         <h1 className="text-xl font-serif italic text-brand-dark dark:text-brand-gold transition-colors">
           {t('menu.my_list')}
         </h1>
@@ -108,7 +110,7 @@ export default function MiListaPage() {
         </div>
       ) : (
         <EmptyState 
-          // 🌟 ESTADOS VACÍOS TRADUCIDOS
+          // ESTADOS VACÍOS TRADUCIDOS
           title={hasActiveFilters ? t('common.no_results') : t('common.empty_list')} 
           description={hasActiveFilters ? t('common.no_results_desc') : t('common.empty_list_desc')} 
           icon={<Bookmark size={32} />} 
@@ -139,7 +141,7 @@ export default function MiListaPage() {
               </div>
 
               <div className="flex-grow overflow-y-auto p-6 space-y-8 scrollbar-hide">
-                {/* 🌟 FILTROS TRADUCIDOS */}
+                {/* FILTROS TRADUCIDOS */}
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold mb-3 block">
                     {t('filters.genre')}

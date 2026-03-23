@@ -3,7 +3,22 @@ import { getPrefs, updatePrefs } from '@/lib/preferences';
 import { dictionaries, Language } from '@/lib/i18n/dictionaries';
 
 // 1. ESTADO GLOBAL EN MEMORIA: Todas las pantallas mirarán esta misma variable
-let globalLang: Language = 'es';
+let globalLang: Language = 'en'; // Fallback inicial seguro
+
+// Función pura para detectar el idioma del OS/Navegador según reglas de negocio
+function getOSLanguage(): Language {
+  if (typeof window === 'undefined') return 'en';
+  
+  // Obtenemos el idioma del sistema (soporta navegadores modernos y webviews de Capacitor)
+  const navigatorLang = window.navigator.language || (window.navigator as any).userLanguage || '';
+  const lowerLang = navigatorLang.toLowerCase();
+
+  // Regla: ES -> ES, PT -> PT, OTHERS -> EN
+  if (lowerLang.startsWith('es')) return 'es';
+  if (lowerLang.startsWith('pt')) return 'pt';
+  
+  return 'en';
+}
 
 // 2. SISTEMA DE TRANSMISIÓN: Aquí guardamos a todos los componentes que necesitan enterarse del cambio
 const listeners = new Set<(lang: Language) => void>();
@@ -11,8 +26,15 @@ const listeners = new Set<(lang: Language) => void>();
 // Carga inicial segura cuando la aplicación arranca
 if (typeof window !== 'undefined') {
   const prefs = getPrefs();
+  
+  // Verificamos si el usuario ya eligió un idioma manualmente
   if (prefs?.language && dictionaries[prefs.language as Language]) {
     globalLang = prefs.language as Language;
+  } else {
+    // Si no hay preferencia, calculamos el idioma según el OS
+    globalLang = getOSLanguage();
+    // Guardamos silenciosamente la preferencia detectada para mantener consistencia
+    updatePrefs({ language: globalLang });
   }
 }
 
@@ -20,19 +42,18 @@ export function useLanguage() {
   const [lang, setLang] = useState<Language>(globalLang);
 
   useEffect(() => {
-    // Cuando una pantalla o la botonera carga, se "suscribe" a la transmisión de idiomas
+    // Suscripción al cambio de idioma global
     const handleLanguageChange = (newLang: Language) => {
       setLang(newLang);
     };
     
     listeners.add(handleLanguageChange);
     
-    // Si la pantalla cargó un poco tarde y el idioma global ya había cambiado, se sincroniza
+    // Sincronización en caso de que el hook se monte después de un cambio global
     if (lang !== globalLang) {
       setLang(globalLang);
     }
 
-    // Cuando sales de la pantalla, se "desuscribe" para no gastar memoria
     return () => {
       listeners.delete(handleLanguageChange);
     };
@@ -42,10 +63,10 @@ export function useLanguage() {
     // 1. Actualizamos la memoria global
     globalLang = newLang; 
     
-    // 2. Lo guardamos en el disco duro del teléfono (preferences)
+    // 2. Persistimos en localStorage
     updatePrefs({ language: newLang }); 
     
-    // 3. MAGIA: Disparamos la actualización a la botonera, la página actual y todo lo demás al instante
+    // 3. Notificamos a todos los componentes suscritos
     listeners.forEach(listener => listener(newLang));
   };
 
@@ -54,7 +75,7 @@ export function useLanguage() {
     let value: any = dictionaries[lang];
     
     for (const key of keys) {
-      // Si falta una traducción, devuelve la clave original para que no explote la app
+      // Retornamos el path original si falta una traducción para evitar crashes
       if (value?.[key] === undefined) return path; 
       value = value[key];
     }
