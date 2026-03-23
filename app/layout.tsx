@@ -11,21 +11,28 @@ import Link from 'next/link';
 import ThemeProvider from '@/components/ThemeProvider';
 import { updatePrefs } from '@/lib/preferences'; 
 
-// IMPORTAMOS EL TRADUCTOR
+// 🌟 IMPORTAMOS LA FUENTE LITERATA (Alternativa a Bookerly)
+import { Literata } from 'next/font/google';
+
 import { useLanguage } from '@/hooks/useLanguage';
+
+// 🌟 CONFIGURAMOS LA FUENTE
+const literata = Literata({ 
+  subsets: ['latin'],
+  variable: '--font-literata',
+  display: 'swap',
+});
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // INICIALIZAMOS EL TRADUCTOR
   const { t, lang } = useLanguage();
 
   const isReadingMode = pathname?.startsWith('/leer'); 
   const showNav = pathname !== '/';
 
   useEffect(() => {
-    // Guardamos la última ruta visitada de forma segura en las preferencias
     if (pathname && pathname !== '/') {
       updatePrefs({ lastRoute: pathname });
     }
@@ -34,16 +41,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const isActive = (path: string) => pathname === path;
 
   return (
-    <html lang={lang || "es"} className="bg-brand-bg dark:bg-[#121212]">
+    // 🌟 INYECTAMOS LA VARIABLE DE LA FUENTE EN EL HTML
+    <html lang={lang || "es"} className={`bg-brand-bg dark:bg-[#121212] ${literata.variable}`}>
       <head>
-        {/* MAGIA: Le dice al teléfono que nuestra app controlará las áreas seguras */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
       </head>
       <body className="bg-brand-bg dark:bg-[#121212] text-brand-dark dark:text-gray-200 min-h-[100dvh] flex flex-col overflow-x-hidden antialiased transition-colors duration-500">
         
         <ThemeProvider>
           
-          {/* Header: Agregamos padding-top dinámico basado en el 'notch' del teléfono */}
           {showNav && !isReadingMode && (
             <header className="fixed top-0 w-full bg-brand-bg/80 dark:bg-[#121212]/90 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10 dark:border-brand-gold/20 transition-colors duration-500 pt-[env(safe-area-inset-top)] h-[calc(4rem+env(safe-area-inset-top))]">
               <Link href="/home" className="flex items-center active:scale-95 transition-transform">
@@ -60,17 +66,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {isMenuOpen && <SideMenu onClose={() => setIsMenuOpen(false)} />}
           </AnimatePresence>
 
-          {/* Main: Ajustamos los márgenes interiores para que el contenido no quede debajo de los menús */}
           <main className={`flex-grow w-full overflow-x-hidden ${(!showNav || isReadingMode) ? 'pt-0' : 'pt-[calc(4rem+env(safe-area-inset-top))]'} ${!showNav || isReadingMode ? 'pb-0' : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'}`}>
             {children}
           </main>
 
-          {/* Nav Inferior: Agregamos padding-bottom dinámico basado en la barra de gestos */}
           {showNav && !isReadingMode && (
             <nav className="fixed bottom-0 w-full bg-white/90 dark:bg-[#121212]/90 backdrop-blur-lg border-t border-brand-gold/10 dark:border-brand-gold/20 px-8 flex justify-between items-center z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.5)] transition-colors duration-500 pb-[calc(1rem+env(safe-area-inset-bottom))] h-[calc(5rem+env(safe-area-inset-bottom))]">
               <Link href="/home" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/home') ? 'text-brand-dark-blue dark:text-brand-gold' : 'text-gray-400 dark:text-gray-500'}`}>
                 <Home size={22} />
-                {/* TEXTOS DE LA BOTONERA TRADUCIDOS */}
                 <span className="text-[10px] font-bold uppercase tracking-tighter">{t('box.home')}</span>
               </Link>
               

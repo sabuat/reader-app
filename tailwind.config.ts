@@ -10,6 +10,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // FIX: Conectamos la clase font-texto con la fuente inyectada desde layout.tsx
+        texto: ['var(--font-literata)', 'Georgia', 'serif'],
+      },
       fontSize: {
         'h1': ['1.875rem', { lineHeight: '2.25rem' }],
         'h2': ['1.5rem', { lineHeight: '2rem' }], 

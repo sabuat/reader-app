@@ -5,14 +5,31 @@ import { supabase } from '@/lib/supabase';
 import { ChevronLeft, ChevronRight, BookOpen, X, Volume2, Play, Pause, Square, List, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useScroll, useSpring } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Capacitor } from '@capacitor/core';
 import { AdMob } from '@capacitor-community/admob';
+
+// 🌟 IMPORTAMOS LA FUENTE DIRECTAMENTE AQUÍ (A PRUEBA DE FALLOS)
+import { Literata } from 'next/font/google';
+
+// 🌟 IMPORTAMOS TIPOS Y SERVICIOS
 import { Chapter } from '@/lib/types';
 import { AuthService } from '@/services/authService';
+
+// 🌟 IMPORTAMOS NUESTRAS NUEVAS PREFERENCIAS CENTRALIZADAS
 import { getPrefs, updatePrefs } from '@/lib/preferences';
+
+// 🌟 IMPORTAMOS EL TRADUCTOR
 import { useLanguage } from '@/hooks/useLanguage';
+
+// Inicializamos Literata con todos sus pesos para que el Markdown se vea perfecto
+const literata = Literata({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+});
 
 function ReaderContent() {
   const searchParams = useSearchParams();
@@ -20,8 +37,6 @@ function ReaderContent() {
   const router = useRouter();
 
   const [userId, setUserId] = useState<string | null>(null);
-  
-  // FIX: Tipado estricto para los capítulos
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [completedChapters, setCompletedChapters] = useState<number[]>([]);
@@ -38,8 +53,16 @@ function ReaderContent() {
   const [speechSupported, setSpeechSupported] = useState(false);
   const [showChapterMenu, setShowChapterMenu] = useState(false);
 
-  // INICIALIZAMOS EL TRADUCTOR
+  // 🌟 INICIALIZAMOS EL TRADUCTOR
   const { t } = useLanguage();
+
+  // 🌟 BARRA DE PROGRESO DE SCROLL FLUIDA
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001
+  });
 
   const safeCancelSpeech = () => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -101,7 +124,6 @@ function ReaderContent() {
       setLoading(true);
 
       try {
-        // FIX: Usamos AuthService centralizado
         const session = await AuthService.getSession();
         const user = session?.user;
         
@@ -153,13 +175,11 @@ function ReaderContent() {
     const newMode = !nightMode;
     setNightMode(newMode);
     
-    // Guardamos en nuestra caja única de preferencias
     updatePrefs({ nightMode: newMode });
   };
 
   const handleSpeak = () => {
     if (!speechSupported) {
-      // ALERTA TRADUCIDA
       alert(t('reader.speech_alert'));
       return;
     }
@@ -271,7 +291,6 @@ function ReaderContent() {
   if (chapters.length === 0) return (
     <div className={`flex flex-col items-center justify-center h-screen px-10 text-center ${nightMode ? 'bg-[#121212] text-white' : 'bg-[#F9F9F7]'}`}>
       <BookOpen size={48} className="text-brand-gold/20 mb-6" />
-      {/* TEXTO TRADUCIDO Y EN MAYÚSCULAS */}
       <h2 className="font-serif italic text-2xl text-brand-gold mb-4">{t('common.coming_soon').toUpperCase()}</h2>
       <Link href="/home" className="inline-block border-b-2 border-brand-gold text-brand-gold text-[11px] font-bold uppercase tracking-[0.2em] pb-1">{t('common.go_back')}</Link>
     </div>
@@ -285,18 +304,23 @@ function ReaderContent() {
 
   return (
     <div className={`min-h-[100dvh] flex flex-col antialiased transition-colors duration-500 ${nightMode ? 'bg-[#121212]' : 'bg-[#F9F9F7]'}`}>
+      
+      {/* 🌟 BARRA DE PROGRESO GLOBAL */}
+      <motion.div
+        className="fixed top-0 left-0 right-0 h-1 bg-brand-gold origin-left z-[100]"
+        style={{ scaleX }}
+      />
+
       <nav 
-        className={`px-6 pb-6 shrink-0 flex justify-between items-center sticky top-0 backdrop-blur-md z-20 transition-colors duration-500 ${nightMode ? 'bg-[#121212]/80' : 'bg-[#F9F9F7]/80'}`}
+        className={`px-6 pb-6 shrink-0 flex justify-between items-center sticky top-0 backdrop-blur-md z-20 transition-colors duration-500 ${nightMode ? 'bg-[#121212]/90' : 'bg-[#F9F9F7]/90'}`}
         style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top))' }}
       >
         <Link href="/home" className="flex items-center gap-2 text-brand-gold active:scale-90 transition-transform">
           <ChevronLeft size={20} />
-          {/* TEXTO TRADUCIDO */}
           <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{t('common.close')}</span>
         </Link>
         <div className="flex flex-col items-end">
           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.3em]">
-            {/* TEXTO TRADUCIDO */}
             {t('reader.chapter')} {currentChapter.chapter_number} {t('common.of')} {chapters.length}
           </span>
           {completedChapters.includes(currentChapter.chapter_number) && (
@@ -305,7 +329,8 @@ function ReaderContent() {
         </div>
       </nav>
 
-      <article className="flex-grow px-6 max-w-2xl mx-auto w-full pt-4 pb-32">
+      {/* 🌟 ANCHO DE LECTURA REDUCIDO PARA MENOS FATIGA VISUAL */}
+      <article className="flex-grow px-6 max-w-[65ch] mx-auto w-full pt-4 pb-32">
         <header className="mb-14">
           <div className="flex justify-start items-center gap-3 mb-4">
             
@@ -354,7 +379,8 @@ function ReaderContent() {
           <div className="h-px bg-brand-gold/30 w-full mt-6" />
         </header>
 
-        <div className={`font-texto leading-[1.25] text-justify mb-20 transition-all duration-500 ${fontSize} ${nightMode ? 'text-[#D4AF37]/90' : 'text-brand-dark/90'}`}>
+        {/* 🌟 AQUÍ FORZAMOS LITERATA Y EL INTERLINEADO RELAJADO (leading-[1.8]) */}
+        <div className={`${literata.className} leading-[1.8] tracking-wide text-justify mb-20 transition-all duration-500 ${fontSize} ${nightMode ? 'text-[#D4AF37]/90' : 'text-brand-dark/90'}`}>
           <ReactMarkdown
             components={{
               p: ({ children }) => <p className="mb-6 whitespace-pre-line">{children}</p>,
@@ -429,6 +455,7 @@ function ReaderContent() {
                 </button>
               </div>
               <div className="flex-grow overflow-y-auto p-4 space-y-2">
+                {/* 🌟 MENÚ DE CAPÍTULOS POR TÍTULO */}
                 {chapters.map((chap, idx) => (
                   <button 
                     key={chap.id} 
@@ -437,13 +464,18 @@ function ReaderContent() {
                       setShowChapterMenu(false);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className={`w-full text-left p-4 rounded-xl text-sm transition-colors ${
+                    className={`w-full text-left p-4 rounded-xl transition-colors ${
                       currentIdx === idx 
-                        ? (nightMode ? 'bg-brand-gold/20 text-brand-gold font-bold' : 'bg-brand-dark-blue/10 text-brand-dark-blue font-bold') 
+                        ? (nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue') 
                         : (nightMode ? 'text-gray-300 active:bg-white/5' : 'text-brand-dark active:bg-black/5')
                     }`}
                   >
-                    {t('reader.chapter')} {chap.chapter_number}
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.2em] opacity-70 mb-1">
+                      {t('reader.chapter')} {chap.chapter_number}
+                    </span>
+                    <span className="block font-serif italic text-lg leading-tight">
+                      {chap.title || 'Sin título'}
+                    </span>
                   </button>
                 ))}
               </div>
