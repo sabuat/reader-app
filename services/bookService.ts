@@ -2,15 +2,44 @@ import { supabase } from '@/lib/supabase';
 import { Book, Chapter, ReadingProgress } from '@/lib/types';
 
 export const BookService = {
-// 📚 1. CATÁLOGO: Obtener todos los libros
-  async getAllBooks(): Promise<Book[]> {
+  // 📚 1. CATÁLOGO: Obtener todos los libros ordenados dinámicamente
+  async getAllBooks(activeLanguage: string = 'es'): Promise<Book[]> {
     const { data, error } = await supabase
       .from('books')
-      .select('*')
-      .order('identificador', { ascending: true });
+      .select('*');
       
     if (error) throw error;
-    return data as Book[];
+    
+    let books = data as Book[];
+
+    // 🌟 APLICAMOS LAS REGLAS DE NEGOCIO DE ORDENAMIENTO
+    books.sort((a, b) => {
+      // Regla 1: Publicados primero
+      if (a.published !== b.published) {
+        return a.published ? -1 : 1; 
+      }
+
+      // Regla 2: Si ambos están publicados, priorizar el idioma de la app
+      if (a.published) {
+        const langA = (a.language || '').toUpperCase();
+        const langB = (b.language || '').toUpperCase();
+        const currentLang = activeLanguage.toUpperCase();
+
+        const aIsActiveLang = langA === currentLang;
+        const bIsActiveLang = langB === currentLang;
+
+        if (aIsActiveLang !== bIsActiveLang) {
+          return aIsActiveLang ? -1 : 1;
+        }
+      }
+
+      // Regla 3: Si están en igualdad de condiciones (mismo idioma o no publicados), ordenar por identificador
+      const idA = a.identificador ?? 999999;
+      const idB = b.identificador ?? 999999;
+      return idA - idB;
+    });
+
+    return books;
   },
 
   // 📖 2. CAPÍTULOS: Obtener los capítulos de un libro en orden

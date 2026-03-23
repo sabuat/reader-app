@@ -19,7 +19,6 @@ const GENRES = [
 const LANGUAGES = ['EN', 'ES', 'IT', 'PT'];
 
 export default function BookGallery() {
-  // 🌟 FIX: Tipos estrictos en lugar de 'any'
   const [books, setBooks] = useState<Book[]>([]);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,12 +32,15 @@ export default function BookGallery() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [selectedAuthor, setSelectedAuthor] = useState<string>('');
 
-  const { t } = useLanguage();
+  // 🌟 FIX: Extraemos también 'lang' para el ordenamiento
+  const { t, lang } = useLanguage();
 
   useEffect(() => {
     async function fetchBooks() {
+      setLoading(true);
       try {
-        const data = await BookService.getAllBooks();
+        // 🌟 FIX: Pasamos el idioma activo al servicio
+        const data = await BookService.getAllBooks(lang);
 
         if (data && data.length > 0) {
           setBooks(data);
@@ -59,7 +61,7 @@ export default function BookGallery() {
     }
 
     fetchBooks();
-  }, []);
+  }, [lang]); // 🌟 FIX: Dependencia añadida para reordenar si el idioma cambia
 
   // 1. Extraemos los autores únicos de los libros para el filtro (protegiendo contra null)
   const authors = Array.from(new Set(books.map(b => b.author || '').filter(Boolean))) as string[];
@@ -160,7 +162,7 @@ export default function BookGallery() {
                     className="w-full bg-white dark:bg-[#1A1A1A] border border-brand-gold/20 dark:border-brand-gold/30 text-brand-dark-blue dark:text-gray-200 text-xs font-bold uppercase tracking-widest rounded-full px-5 py-3.5 outline-none focus:border-brand-dark-blue dark:focus:border-brand-gold transition-colors appearance-none shadow-sm"
                   >
                     <option value="">{t('filters.all_genres')}</option>
-                    {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+                    {GENRES.map(g => <option key={g} value={g}>{t(`genres_db.${g}`)}</option>)}
                   </select>
                 </div>
 

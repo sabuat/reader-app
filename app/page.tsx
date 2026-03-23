@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Mail, Lock, User, Check, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase'; 
 
 import { AuthService } from '@/services/authService';
 import { getPrefs, updatePrefs } from '@/lib/preferences';
@@ -41,51 +40,55 @@ export default function AuthPage() {
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
 
+  // 🌟 FIX: Única función centralizada para procesar al usuario autenticado
+  const processUserSession = async (user: any) => {
+    try {
+      const profile = await AuthService.getProfile(user.id);
+
+      if (profile) {
+        const prefs = getPrefs(); 
+        router.push(prefs.lastRoute || '/home');
+        // No apagamos el loader aquí para evitar el destello visual antes de que Next.js enrute
+      } else {
+        setAuthUserId(user.id);
+        setRegEmail(user.email || '');
+        setFullName(user.user_metadata?.full_name || '');
+        setView('complete_profile');
+        setIsCheckingSession(false);
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error("Error al verificar perfil o caché corrupta:", error);
+      await AuthService.signOut(); 
+      setIsCheckingSession(false);
+      setLoading(false);
+    }
+  };
+
+  // 🌟 FIX: Bootstrap lineal sin listeners duplicados
   useEffect(() => {
     let isMounted = true;
 
-    const initSession = async () => {
+    const bootstrap = async () => {
       try {
         const session = await AuthService.getSession();
         
         if (session?.user && isMounted) {
-          const profile = await AuthService.getProfile(session.user.id);
-
-          if (profile) {
-            const prefs = getPrefs(); 
-            router.push(prefs.lastRoute || '/home');
-            // No cambiamos isCheckingSession a false aquí para evitar destellos visuales mientras redirige
-            return; 
-          } else {
-            setAuthUserId(session.user.id);
-            setRegEmail(session.user.email || '');
-            setFullName(session.user.user_metadata?.full_name || '');
-            setView('complete_profile');
-          }
+          await processUserSession(session.user);
+        } else if (isMounted) {
+          setIsCheckingSession(false);
         }
       } catch (error) {
-        console.error("Error al verificar sesión o caché corrupta:", error);
-        await AuthService.signOut(); 
-      } finally {
+        console.error("Error inicializando sesión:", error);
+        await AuthService.signOut();
         if (isMounted) setIsCheckingSession(false);
       }
     };
 
-    initSession();
+    bootstrap();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Escuchamos SIGNED_IN para casos como redirecciones de Google Auth
-      if (event === 'SIGNED_IN' && session?.user && isMounted) {
-        setIsCheckingSession(true); 
-        initSession();
-      }
-    });
-
-    return () => { 
-      isMounted = false;
-      authListener.subscription.unsubscribe(); 
-    };
-  }, [router]);
+    return () => { isMounted = false; };
+  }, []); // Dependencias limpias, sin triggers externos
 
   const isOldEnough = (birthDateString: string) => {
     const today = new Date();
@@ -100,7 +103,10 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true); setErrorMsg('');
     try {
-      await AuthService.signInWithEmail(loginEmail, loginPassword);
+      const data = await AuthService.signInWithEmail(loginEmail, loginPassword);
+      if (data.user) {
+        await processUserSession(data.user);
+      }
     } catch (error) {
       setErrorMsg(t('auth.invalid_credentials'));
       setLoading(false);
@@ -198,11 +204,16 @@ export default function AuthPage() {
   };
 
   const handleGoogleLogin = async () => {
+    setLoading(true); setErrorMsg('');
     try {
-      await AuthService.signInWithGoogle();
+      const data = await AuthService.signInWithGoogle();
+      if (data.user) {
+        await processUserSession(data.user);
+      }
     } catch (error) {
       console.error("Error nativo:", error);
       setErrorMsg(t('auth.google_error'));
+      setLoading(false);
     }
   };
 

@@ -61,7 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </AnimatePresence>
 
           {/* Main: Ajustamos los márgenes interiores para que el contenido no quede debajo de los menús */}
-          <main className={`flex-grow w-full overflow-x-hidden ${(!showNav || isReadingMode) ? 'pt-0' : 'pt-[calc(4rem+env(safe-area-inset-top))]'} ${!showNav || isReadingMode ? 'pb-0' : 'pb-[calc(6rem+env(safe-area-inset-bottom))]'}`}>
+          <main className={`flex-grow w-full overflow-x-hidden ${(!showNav || isReadingMode) ? 'pt-0' : 'pt-[calc(4rem+env(safe-area-inset-top))]'} ${!showNav || isReadingMode ? 'pb-0' : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'}`}>
             {children}
           </main>
 

@@ -19,7 +19,6 @@ const GENRES = [
 const LANGUAGES = ['EN', 'ES', 'IT', 'PT'];
 
 export default function MiListaPage() {
-  // FIX: Estado estrictamente tipado y limpio
   const [savedBooks, setSavedBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -46,7 +45,7 @@ export default function MiListaPage() {
       const data = await BookService.getMyList(session.user.id);
       
       if (data) {
-        // FIX: Formateamos y validamos la data cruda antes de guardarla en el estado
+        // Formateamos y validamos la data cruda antes de guardarla en el estado
         const formatted = data
           .map((item: any) => Array.isArray(item.books) ? item.books[0] : item.books)
           .filter(Boolean) as Book[];
@@ -65,7 +64,7 @@ export default function MiListaPage() {
     fetchMyList();
   }, []);
 
-  // FIX: Protección contra valores null al extraer autores
+  // Protección contra valores null al extraer autores
   const authors = Array.from(new Set(savedBooks.map(b => b.author || '').filter(Boolean))) as string[];
 
   const filteredBooks = savedBooks.filter((book) => {
@@ -81,7 +80,7 @@ export default function MiListaPage() {
   return (
     <div className="min-h-[100dvh] bg-brand-bg dark:bg-[#121212] transition-colors duration-500 px-6 pb-24 overflow-x-hidden relative">
       <header className="pt-10 pb-6 border-b border-brand-gold/10 dark:border-brand-gold/20 mb-6 flex justify-between items-end transition-colors">
-        {/*  TÍTULO TRADUCIDO */}
+        {/* TÍTULO TRADUCIDO */}
         <h1 className="text-xl font-serif italic text-brand-dark dark:text-brand-gold transition-colors">
           {t('menu.my_list')}
         </h1>
@@ -150,7 +149,8 @@ export default function MiListaPage() {
                     className="w-full bg-white dark:bg-[#1A1A1A] border border-brand-gold/20 dark:border-brand-gold/30 text-brand-dark-blue dark:text-gray-200 text-xs font-bold uppercase tracking-widest rounded-full px-5 py-3.5 outline-none transition-colors appearance-none shadow-sm"
                   >
                     <option value="">{t('filters.all_genres')}</option>
-                    {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+                    {/* FIX: Texto traducido, 'value' original para la DB */}
+                    {GENRES.map(g => <option key={g} value={g}>{t(`genres_db.${g}`)}</option>)}
                   </select>
                 </div>
 

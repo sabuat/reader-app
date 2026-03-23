@@ -50,6 +50,17 @@ export const dictionaries = {
       all_languages: 'Todos los idiomas',
       all_authors: 'Todos los autores',
     },
+    // 🌟 NUEVAS TRADUCCIONES PARA LOS GÉNEROS (Claves exactas de la DB)
+    genres_db: {
+      'Cuentos': 'Cuentos',
+      'Ensayos': 'Ensayos',
+      'Literatura Fantástica': 'Literatura Fantástica',
+      'Literatura Romántica': 'Literatura Romántica',
+      'Microrelatos': 'Microrelatos',
+      'Novela': 'Novela',
+      'Novela Corta': 'Novela Corta',
+      'Poesia': 'Poesía'
+    },
     auth: {
       invalid_credentials: 'Correo o contraseña incorrectos.',
       passwords_not_match: 'Las contraseñas no coinciden.',
@@ -172,6 +183,17 @@ export const dictionaries = {
       all_languages: 'All Languages',
       all_authors: 'All Authors',
     },
+    // 🌟 TRADUCCIONES EN INGLÉS
+    genres_db: {
+      'Cuentos': 'Short Stories',
+      'Ensayos': 'Essays',
+      'Literatura Fantástica': 'Fantasy',
+      'Literatura Romántica': 'Romance',
+      'Microrelatos': 'Flash Fiction',
+      'Novela': 'Novel',
+      'Novela Corta': 'Novella',
+      'Poesia': 'Poetry'
+    },
     auth: {
       invalid_credentials: 'Incorrect email or password.',
       passwords_not_match: 'Passwords do not match.',
@@ -287,12 +309,23 @@ export const dictionaries = {
       speech_alert: 'Para ouvir capítulos, seu telefone precisa ter a leitura por voz ativada.',
     },
     filters: {
-      genre: 'Genero',
+      genre: 'Gênero',
       language: 'Idioma',
       author: 'Autor',
-      all_genres: 'Todos os generos',
+      all_genres: 'Todos os gêneros',
       all_languages: 'Todos os idiomas',
       all_authors: 'Todos os autores',
+    },
+    // 🌟 TRADUCCIONES EN PORTUGUÉS
+    genres_db: {
+      'Cuentos': 'Contos',
+      'Ensayos': 'Ensaios',
+      'Literatura Fantástica': 'Fantasia',
+      'Literatura Romántica': 'Romance',
+      'Microrelatos': 'Microcontos',
+      'Novela': 'Romance (Novela)',
+      'Novela Corta': 'Novela Curta',
+      'Poesia': 'Poesia'
     },
     auth: {
       invalid_credentials: 'Email ou senha incorretos.',

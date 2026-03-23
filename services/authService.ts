@@ -57,17 +57,17 @@ export const AuthService = {
     if (error) throw error;
   },
 
-  // Limpieza controlada al salir (evitar localStorage.clear() destructivo)
+  // Limpieza controlada al salir
   async signOut() {
     await supabase.auth.signOut();
     
     if (typeof window !== 'undefined') {
-      // Solo borramos las claves propias de la aplicación y de Supabase,
-      // preservando configuraciones de otras posibles herramientas o integraciones
+      // Solo borramos las claves propias de la sesión de Supabase
+      // preservando las preferencias del usuario (idioma, tema, fuente)
       const keysToRemove: string[] = [];
       for (let i = 0; i < window.localStorage.length; i++) {
         const key = window.localStorage.key(i);
-        if (key && (key.startsWith('apapacho_') || key.startsWith('sb-'))) {
+        if (key && key.startsWith('sb-')) {
           keysToRemove.push(key);
         }
       }
