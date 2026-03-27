@@ -1,47 +1,105 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getPrefs, updatePrefs } from '@/lib/preferences';
-import { dictionaries, Language } from '@/lib/i18n/dictionaries';
+"use client";
 
-export function useLanguage() {
-  const [lang, setLang] = useState<Language>('es');
+import { useState, useEffect, useCallback } from 'react';
+import { User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
+import { AuthService } from '@/services/authService';
+import { Profile } from '@/lib/types';
+
+export interface AuthState {
+  user: User | null;
+  profile: Profile | null;
+  isLoading: boolean;
+}
+
+export function useAuth() {
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    profile: null,
+    isLoading: true,
+  });
+
+  const refreshSession = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+
+    try {
+      const result = await AuthService.getCurrentUserWithProfile();
+
+      setState({
+        user: result?.user ?? null,
+        profile: result?.profile ?? null,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error('[useAuth] Error sincronizando estado de autenticación:', error);
+      setState({
+        user: null,
+        profile: null,
+        isLoading: false,
+      });
+    }
+  }, []);
 
   useEffect(() => {
-    // 1. Carga inicial
-    const prefs = getPrefs();
-    if (prefs.language && dictionaries[prefs.language as Language]) {
-      setLang(prefs.language as Language);
-    }
+    let cancelled = false;
 
-    // 2. Escucha global para actualizar otros componentes en tiempo real (como la botonera)
-    const handleLanguageChange = () => {
-      const currentPrefs = getPrefs();
-      if (currentPrefs.language) {
-        setLang(currentPrefs.language as Language);
+    const safeRefreshSession = async () => {
+      if (!cancelled) {
+        setState((prev) => ({ ...prev, isLoading: true }));
+      }
+
+      try {
+        const result = await AuthService.getCurrentUserWithProfile();
+
+        if (!cancelled) {
+          setState({
+            user: result?.user ?? null,
+            profile: result?.profile ?? null,
+            isLoading: false,
+          });
+        }
+      } catch (error) {
+        console.error('[useAuth] Error sincronizando estado de autenticación:', error);
+
+        if (!cancelled) {
+          setState({
+            user: null,
+            profile: null,
+            isLoading: false,
+          });
+        }
       }
     };
 
-    window.addEventListener('languageChanged', handleLanguageChange);
-    return () => window.removeEventListener('languageChanged', handleLanguageChange);
+    safeRefreshSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+
+      if (event === 'SIGNED_OUT' || !session) {
+        setState({
+          user: null,
+          profile: null,
+          isLoading: false,
+        });
+        return;
+      }
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        void safeRefreshSession();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const changeLanguage = (newLang: Language) => {
-    setLang(newLang);
-    updatePrefs({ language: newLang });
-    // 3. Avisamos a toda la aplicación del cambio
-    window.dispatchEvent(new Event('languageChanged'));
+  return {
+    ...state,
+    refreshSession,
   };
-
-  const t = useCallback((path: string) => {
-    const keys = path.split('.');
-    let value: any = dictionaries[lang];
-    
-    for (const key of keys) {
-      if (value[key] === undefined) return path; 
-      value = value[key];
-    }
-    
-    return value as string;
-  }, [lang]);
-
-  return { lang, changeLanguage, t };
 }

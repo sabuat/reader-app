@@ -9,10 +9,12 @@ export interface Profile {
   font_size?: string;
   night_mode?: boolean;
   updated_at?: string;
+  chapters_read?: number;
 }
 
 // Define exactamente qué forma tiene un Libro
 export interface Book {
+  chapters: number;
   id: string;
   title: string;
   author: string;

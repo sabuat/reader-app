@@ -1,75 +1,72 @@
 "use client";
 
-import { useEffect, useState, Suspense } from 'react';
-import { supabase } from '@/lib/supabase';
-import { ChevronLeft, ChevronRight, BookOpen, X, Volume2, Play, Pause, Square, List, Moon, Sun } from 'lucide-react';
-import Link from 'next/link';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AnimatePresence, motion, useScroll, useSpring } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
+import { 
+  ArrowLeft, ChevronLeft, ChevronRight, Settings, Moon, Sun, 
+  Type, List, Volume2, Play, Pause, Square, X 
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import { AdMob } from '@capacitor-community/admob';
+import ReactMarkdown from 'react-markdown';
 
-// 🌟 IMPORTAMOS LA FUENTE DIRECTAMENTE AQUÍ (A PRUEBA DE FALLOS)
-import { Literata } from 'next/font/google';
-
-// 🌟 IMPORTAMOS TIPOS Y SERVICIOS
+import { supabase } from '@/lib/supabase';
+import { BookService } from '@/services/bookService';
+import { PreferencesService, AppPreferences } from '@/lib/preferences';
 import { Chapter } from '@/lib/types';
+import { useLanguage } from '@/hooks/useLanguage';
 import { AuthService } from '@/services/authService';
 
-// 🌟 IMPORTAMOS NUESTRAS NUEVAS PREFERENCIAS CENTRALIZADAS
-import { getPrefs, updatePrefs } from '@/lib/preferences';
+// ==========================================
+// COMPONENTE ENVOLTORIO PARA SUSPENSE
+// ==========================================
+export default function LeerPage() {
+  return (
+    <Suspense fallback={<ReaderSkeleton />}>
+      <ReaderContent />
+    </Suspense>
+  );
+}
 
-// 🌟 IMPORTAMOS EL TRADUCTOR
-import { useLanguage } from '@/hooks/useLanguage';
-
-// Inicializamos Literata con todos sus pesos para que el Markdown se vea perfecto
-const literata = Literata({ 
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
-  display: 'swap',
-});
-
+// ==========================================
+// COMPONENTE PRINCIPAL DEL LECTOR
+// ==========================================
 function ReaderContent() {
-  const searchParams = useSearchParams();
-  const id = searchParams.get('id');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const bookId = searchParams.get('bookId');
+  
+  const { t, isReady: langReady } = useLanguage();
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  const [userId, setUserId] = useState<string | null>(null);
+  // ==========================================
+  // ESTADOS DEL DOMINIO
+  // ==========================================
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [completedChapters, setCompletedChapters] = useState<number[]>([]);
+  const [currentChapterIdx, setCurrentChapterIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Estados controlados por el gestor de preferencias
-  const [fontSize, setFontSize] = useState('text-lg');
-  const [nightMode, setNightMode] = useState(false);
+  // ==========================================
+  // ESTADOS DE PREFERENCIAS Y UI
+  // ==========================================
+  const [prefs, setPrefs] = useState<AppPreferences>(PreferencesService.getPrefs());
+  const [showControls, setShowControls] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showChapterMenu, setShowChapterMenu] = useState(false);
 
+  // ==========================================
+  // ESTADOS DE NEGOCIO (Ads & Accesibilidad)
+  // ==========================================
   const [sessionReads, setSessionReads] = useState(0);
-
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
-  const [showChapterMenu, setShowChapterMenu] = useState(false);
 
-  // 🌟 INICIALIZAMOS EL TRADUCTOR
-  const { t } = useLanguage();
-
-  // 🌟 BARRA DE PROGRESO DE SCROLL FLUIDA
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 30,
-    restDelta: 0.001
-  });
-
-  const safeCancelSpeech = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-  };
-
+  // ==========================================
+  // INICIALIZACIÓN DE SERVICIOS NATIVOS
+  // ==========================================
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       setSpeechSupported(true);
@@ -78,112 +75,149 @@ function ReaderContent() {
     if (Capacitor.isNativePlatform()) {
       AdMob.initialize({
         initializeForTesting: false, 
-      }).catch(e => console.error("Error inicializando AdMob", e));
+      }).catch(e => console.error("[Reader] Error inicializando AdMob", e));
     }
   }, []);
 
-  // 1. EFECTO PARA EL TEMA (Conectado a preferencias centralizadas)
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    // Leemos todo desde nuestra única "caja" de preferencias
-    const prefs = getPrefs();
-
-    if (prefs.fontSize) setFontSize(prefs.fontSize);
-
-    if (prefs.nightMode !== null) {
-      setNightMode(prefs.nightMode);
-    } else {
-      setNightMode(mediaQuery.matches);
+  const safeCancelSpeech = useCallback(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
-
-    const handleThemeChange = (e: MediaQueryListEvent) => {
-      const currentPrefs = getPrefs();
-      if (currentPrefs.nightMode === null) {
-        setNightMode(e.matches);
-      }
-    };
-    mediaQuery.addEventListener('change', handleThemeChange);
-
-    return () => mediaQuery.removeEventListener('change', handleThemeChange);
   }, []);
 
-  // Aplicar clases de Tailwind al body automáticamente cuando cambie nightMode
+  // ==========================================
+  // DATA FETCHING
+  // ==========================================
   useEffect(() => {
-    if (nightMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [nightMode]);
+    if (!bookId || !langReady) return;
 
-  // 2. EFECTO PARA CARGAR DATOS
-  useEffect(() => {
-    async function loadData() {
-      if (!id) return;
+    let ignore = false; 
+
+    const initReader = async () => {
       setLoading(true);
-
       try {
         const session = await AuthService.getSession();
-        const user = session?.user;
+        const uid = session?.user?.id;
         
-        if (!user) {
-          router.push('/');
-          return;
+        if (uid && !ignore) setUserId(uid);
+
+        const fetchedChapters = await BookService.getChapters(bookId);
+        if (ignore) return;
+        
+        setChapters(fetchedChapters);
+
+        if (uid) {
+          const progress = await BookService.getReadingProgress(uid, bookId);
+          if (ignore) return;
+          
+          if (progress) {
+            const lastReadIdx = fetchedChapters.findIndex(c => c.chapter_number === progress.chapter_number);
+            if (lastReadIdx !== -1) setCurrentChapterIdx(lastReadIdx);
+          }
         }
-        setUserId(user.id);
-
-        const { data: chs } = await supabase
-          .from('chapters')
-          .select('*')
-          .eq('book_id', id)
-          .order('chapter_number', { ascending: true });
-
-        const { data: prog } = await supabase
-          .from('reading_progress')
-          .select('chapter_number, completed_chapters')
-          .eq('book_id', id)
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (chs) setChapters(chs as Chapter[]);
-
-        if (prog) {
-          setCompletedChapters(prog.completed_chapters || []);
-          const lastIndex = chs?.findIndex(c => c.chapter_number === prog.chapter_number);
-          if (lastIndex !== undefined && lastIndex !== -1) setCurrentIdx(lastIndex);
-        }
-      } catch (err) {
-        console.error("Error cargando datos:", err);
+      } catch (error) {
+        console.error("[Reader] Error inicializando el lector:", error);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
-    }
-    loadData();
+    };
 
-    return () => safeCancelSpeech();
-  }, [id, router]);
+    initReader();
+
+    return () => { 
+      ignore = true; 
+      safeCancelSpeech();
+    };
+  }, [bookId, langReady, safeCancelSpeech]);
 
   useEffect(() => {
     safeCancelSpeech();
     setIsSpeaking(false);
     setIsPaused(false);
-  }, [currentIdx]);
+  }, [currentChapterIdx, safeCancelSpeech]);
 
-  // FUNCIÓN PARA ALTERNAR MODO NOCTURNO MANUALMENTE
-  const handleToggleNightMode = () => {
-    const newMode = !nightMode;
-    setNightMode(newMode);
+  // ==========================================
+  // LÓGICA DE PROGRESO Y PUBLICIDAD (AdMob)
+  // ==========================================
+  const saveProgress = useCallback(async (chapterIndex: number) => {
+    if (!userId || !bookId || chapters.length === 0) return;
     
-    updatePrefs({ nightMode: newMode });
+    const chapterNumber = chapters[chapterIndex].chapter_number;
+    
+    try {
+      await BookService.updateProgress({
+        user_id: userId,
+        book_id: bookId,
+        chapter_number: chapterNumber,
+        last_read_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("[Reader] Error guardando progreso:", error);
+    }
+  }, [userId, bookId, chapters]);
+
+  const showRealAd = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      console.log("💰 [AdMob SIMULADOR]: Anuncio Intersticial disparado.");
+      if (bookId) {
+        const { data } = await supabase.from('books').select('ad_views').eq('id', bookId).single();
+        const currentViews = data?.ad_views || 0;
+        await supabase.from('books').update({ ad_views: currentViews + 1 }).eq('id', bookId);
+      }
+      return; 
+    }
+
+    try {
+      await AdMob.prepareInterstitial({
+        adId: 'ca-app-pub-6944764501142533/1335629634', 
+        isTesting: false 
+      });
+      await AdMob.showInterstitial();
+
+      if (bookId) {
+        const { data } = await supabase.from('books').select('ad_views').eq('id', bookId).single();
+        const currentViews = data?.ad_views || 0;
+        await supabase.from('books').update({ ad_views: currentViews + 1 }).eq('id', bookId);
+      }
+    } catch (e) {
+      console.error("[Reader] No se pudo mostrar el anuncio nativo", e);
+    }
   };
 
+  const handleNextChapter = () => {
+    if (currentChapterIdx >= chapters.length - 1) return;
+
+    const newReads = sessionReads + 1;
+    setSessionReads(newReads);
+
+    if (newReads % 2 === 0) {
+      showRealAd(); 
+    }
+
+    const nextIdx = currentChapterIdx + 1;
+    setCurrentChapterIdx(nextIdx);
+    saveProgress(nextIdx);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePrevChapter = () => {
+    if (currentChapterIdx > 0) {
+      const prevIdx = currentChapterIdx - 1;
+      setCurrentChapterIdx(prevIdx);
+      saveProgress(prevIdx);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // ==========================================
+  // ACCESIBILIDAD (TTS)
+  // ==========================================
   const handleSpeak = () => {
     if (!speechSupported) {
       alert(t('reader.speech_alert'));
       return;
     }
-    const rawContent = chapters[currentIdx]?.content || '';
+    const rawContent = chapters[currentChapterIdx]?.content || '';
     if (!rawContent) return; 
     
     if (isPaused) {
@@ -192,8 +226,10 @@ function ReaderContent() {
       setIsSpeaking(true);
       return;
     }
-    const cleanText = rawContent.replace(/[*#_>]/g, '');
+    
+    const cleanText = rawContent.replace(/<[^>]+>/g, '').replace(/[*#_>]/g, '');
     safeCancelSpeech();
+    
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'es-ES'; 
     utterance.rate = 0.95; 
@@ -222,260 +258,173 @@ function ReaderContent() {
     setIsPaused(false);
   };
 
-  const showRealAd = async () => {
-    if (!Capacitor.isNativePlatform()) return; 
-    try {
-      await AdMob.prepareInterstitial({
-        adId: 'ca-app-pub-6944764501142533/1335629634', 
-        isTesting: false 
-      });
-      await AdMob.showInterstitial();
-
-      if (id) {
-        const { data } = await supabase.from('books').select('ad_views').eq('id', id).single();
-        const currentViews = data?.ad_views || 0;
-        await supabase.from('books').update({ ad_views: currentViews + 1 }).eq('id', id);
-      }
-    } catch (e) {
-      console.error("No se pudo mostrar el anuncio", e);
-    }
+  // ==========================================
+  // MANEJO DE PREFERENCIAS
+  // ==========================================
+  const toggleNightMode = () => {
+    const newMode = !prefs.nightMode;
+    setPrefs(prev => ({ ...prev, nightMode: newMode }));
+    PreferencesService.updatePrefs({ nightMode: newMode });
+    if (newMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   };
 
-  const handleNextChapter = async () => {
-    if (currentIdx >= chapters.length - 1 || !userId || !id) return;
-
-    const currentChapter = chapters[currentIdx];
-    const nextChapter = chapters[currentIdx + 1];
-    const newCompleted = Array.from(new Set([...completedChapters, currentChapter.chapter_number]));
-
-    try {
-      const { error } = await supabase.from('reading_progress').upsert({
-        user_id: userId,
-        book_id: id,
-        chapter_number: nextChapter.chapter_number,
-        completed_chapters: newCompleted,
-        last_read_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,book_id' });
-
-      if (error) throw error;
-
-      setCompletedChapters(newCompleted);
-      setCurrentIdx(currentIdx + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-
-      setSessionReads((prev) => {
-        const newCount = prev + 1;
-        if (newCount % 2 === 0) {
-          showRealAd(); 
-        }
-        return newCount;
-      });
-    } catch (err) {
-      console.error("Error al salvar progreso:", err);
-    }
+  const setSpecificFontSize = (newSize: AppPreferences['fontSize']) => {
+    setPrefs(prev => ({ ...prev, fontSize: newSize }));
+    PreferencesService.updatePrefs({ fontSize: newSize });
   };
 
-  const handlePrevChapter = () => {
-    if (currentIdx > 0) {
-      setCurrentIdx(currentIdx - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
+  // ==========================================
+  // RENDERIZADO
+  // ==========================================
+  const currentChapter = chapters[currentChapterIdx];
 
-  if (loading) return (
-    <div className={`flex h-screen items-center justify-center ${nightMode ? 'bg-[#121212]' : 'bg-[#F9F9F7]'}`}>
-      <div className="w-8 h-8 border-4 border-brand-gold border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (loading || !langReady) return <ReaderSkeleton />;
 
-  if (chapters.length === 0) return (
-    <div className={`flex flex-col items-center justify-center h-screen px-10 text-center ${nightMode ? 'bg-[#121212] text-white' : 'bg-[#F9F9F7]'}`}>
-      <BookOpen size={48} className="text-brand-gold/20 mb-6" />
-      <h2 className="font-serif italic text-2xl text-brand-gold mb-4">{t('common.coming_soon').toUpperCase()}</h2>
-      <Link href="/home" className="inline-block border-b-2 border-brand-gold text-brand-gold text-[11px] font-bold uppercase tracking-[0.2em] pb-1">{t('common.go_back')}</Link>
-    </div>
-  );
-
-  const currentChapter = chapters[currentIdx];
-  if (!currentChapter) return null;
-
-  const hasNext = currentIdx < chapters.length - 1;
-  const hasPrev = currentIdx > 0;
+  if (!currentChapter) {
+    return (
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-brand-bg dark:bg-[#121212]">
+        <p className="text-gray-500">{t('reader.no_content') || 'No se pudo cargar el contenido.'}</p>
+        <button onClick={() => router.back()} className="mt-4 text-brand-gold uppercase tracking-widest text-xs font-bold">
+          {t('common.back')}
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className={`min-h-[100dvh] flex flex-col antialiased transition-colors duration-500 ${nightMode ? 'bg-[#121212]' : 'bg-[#F9F9F7]'}`}>
+    <div className={`min-h-[100dvh] transition-colors duration-500 ease-in-out relative ${prefs.nightMode ? 'bg-[#121212] text-[#E0E0E0]' : 'bg-[#F9F9F7] text-[#2D2D2D]'}`}>
       
-      {/* 🌟 BARRA DE PROGRESO GLOBAL */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-brand-gold origin-left z-[100]"
-        style={{ scaleX }}
+      <div 
+        className="fixed inset-0 z-10" 
+        onClick={() => {
+          setShowControls(!showControls);
+          setShowSettings(false);
+        }} 
       />
 
-      <nav 
-        className={`px-6 pb-6 shrink-0 flex justify-between items-center sticky top-0 backdrop-blur-md z-20 transition-colors duration-500 ${nightMode ? 'bg-[#121212]/90' : 'bg-[#F9F9F7]/90'}`}
-        style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top))' }}
-      >
-        <Link href="/home" className="flex items-center gap-2 text-brand-gold active:scale-90 transition-transform">
-          <ChevronLeft size={20} />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{t('common.close')}</span>
-        </Link>
-        <div className="flex flex-col items-end">
-          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.3em]">
-            {t('reader.chapter')} {currentChapter.chapter_number} {t('common.of')} {chapters.length}
-          </span>
-          {completedChapters.includes(currentChapter.chapter_number) && (
-            <span className="text-[8px] text-green-600 font-bold uppercase tracking-tighter">{t('reader.completed')}</span>
-          )}
-        </div>
-      </nav>
-
-      {/* 🌟 ANCHO DE LECTURA REDUCIDO PARA MENOS FATIGA VISUAL */}
-      <article className="flex-grow px-6 max-w-[65ch] mx-auto w-full pt-4 pb-32">
-        <header className="mb-14">
-          <div className="flex justify-start items-center gap-3 mb-4">
-            
-            <button 
-              onClick={handleToggleNightMode} 
-              className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue'}`}
-            >
-              {nightMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-
-            {!isSpeaking && !isPaused ? (
-              <button 
-                onClick={handleSpeak} 
-                className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue'}`}
-              >
-                <Volume2 size={18} />
+      <AnimatePresence>
+        {showControls && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 pointer-events-none flex flex-col justify-start"
+          >
+            <div className="bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-md p-4 flex items-center justify-between border-b border-gray-200 dark:border-white/10 pointer-events-auto shadow-sm" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
+              <button onClick={() => router.back()} className="p-2 active:scale-90 transition-transform">
+                <ArrowLeft size={24} className="text-brand-dark dark:text-gray-300" />
               </button>
-            ) : (
-              <div className={`flex items-center gap-1 p-1 rounded-full ${nightMode ? 'bg-brand-gold/20' : 'bg-brand-dark-blue/10'}`}>
-                {isPaused ? (
-                  <button onClick={handleSpeak} className={`p-2 rounded-full active:scale-90 transition-transform ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>
-                    <Play size={16} fill="currentColor" />
+              
+              <div className="flex items-center gap-2 pr-2">
+                {!isSpeaking && !isPaused ? (
+                  <button onClick={handleSpeak} className="p-2 active:scale-90 transition-transform text-brand-dark dark:text-brand-gold">
+                    <Volume2 size={22} />
                   </button>
                 ) : (
-                  <button onClick={handlePause} className={`p-2 rounded-full active:scale-90 transition-transform ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>
-                    <Pause size={16} fill="currentColor" />
-                  </button>
+                  <div className="flex items-center bg-brand-dark-blue/5 dark:bg-brand-gold/10 rounded-full px-1 py-0.5">
+                    {isPaused ? (
+                      <button onClick={handleSpeak} className="p-1.5 active:scale-90 transition-transform text-brand-dark dark:text-brand-gold">
+                        <Play size={18} fill="currentColor" />
+                      </button>
+                    ) : (
+                      <button onClick={handlePause} className="p-1.5 active:scale-90 transition-transform text-brand-dark dark:text-brand-gold">
+                        <Pause size={18} fill="currentColor" />
+                      </button>
+                    )}
+                    <button onClick={handleStop} className="p-1.5 active:scale-90 transition-transform text-brand-red">
+                      <Square size={16} fill="currentColor" />
+                    </button>
+                  </div>
                 )}
-                <button onClick={handleStop} className="p-2 rounded-full text-brand-red active:scale-90 transition-transform">
-                  <Square size={16} fill="currentColor" />
+
+                <button onClick={() => { setShowChapterMenu(true); setShowControls(false); }} className="p-2 active:scale-90 transition-transform">
+                  <List size={24} className="text-brand-dark dark:text-gray-300" />
+                </button>
+
+                <button onClick={() => setShowSettings(!showSettings)} className="p-2 active:scale-90 transition-transform relative">
+                  <Settings size={24} className="text-brand-dark dark:text-gray-300" />
+                  {showSettings && (
+                    <div className="absolute top-full right-0 mt-2 bg-white dark:bg-[#2A2A2A] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 p-4 w-64 flex flex-col gap-4">
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{t('reader.theme')}</span>
+                        <button onClick={toggleNightMode} className="p-3 bg-gray-50 dark:bg-black/30 rounded-full active:scale-90">
+                          {prefs.nightMode ? <Sun size={18} className="text-brand-gold" /> : <Moon size={18} className="text-brand-dark-blue" />}
+                        </button>
+                      </div>
+
+                      <div className="flex justify-between items-center mt-4">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{t('reader.font_size')}</span>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => setSpecificFontSize('text-base')} 
+                            className={`p-3 rounded-full active:scale-90 transition-colors ${prefs.fontSize === 'text-base' ? 'bg-brand-gold text-white dark:text-[#121212]' : 'bg-gray-50 dark:bg-black/30 text-brand-dark dark:text-gray-300'}`}
+                          >
+                            <Type size={14} />
+                          </button>
+                          
+                          <button 
+                            onClick={() => setSpecificFontSize('text-lg')} 
+                            className={`p-3 rounded-full active:scale-90 transition-colors ${prefs.fontSize === 'text-lg' ? 'bg-brand-gold text-white dark:text-[#121212]' : 'bg-gray-50 dark:bg-black/30 text-brand-dark dark:text-gray-300'}`}
+                          >
+                            <Type size={18} />
+                          </button>
+
+                          <button 
+                            onClick={() => setSpecificFontSize('text-xl')} 
+                            className={`p-3 rounded-full active:scale-90 transition-colors ${prefs.fontSize === 'text-xl' ? 'bg-brand-gold text-white dark:text-[#121212]' : 'bg-gray-50 dark:bg-black/30 text-brand-dark dark:text-gray-300'}`}
+                          >
+                            <Type size={22} />
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
                 </button>
               </div>
-            )}
-
-            <button 
-              onClick={() => setShowChapterMenu(true)} 
-              className={`p-2.5 rounded-full active:scale-90 transition-transform ${nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue'}`}
-            >
-              <List size={18} />
-            </button>
-          </div>
-
-          <h1 className={`text-2xl font-serif italic leading-tight text-left transition-colors duration-500 ${nightMode ? 'text-brand-gold' : 'text-gray-800'}`}>
-            {currentChapter.title}
-          </h1>
-          <div className="h-px bg-brand-gold/30 w-full mt-6" />
-        </header>
-
-        {/* 🌟 AQUÍ FORZAMOS LITERATA Y EL INTERLINEADO RELAJADO (leading-[1.8]) */}
-        <div className={`${literata.className} leading-[1.8] tracking-wide text-justify mb-20 transition-all duration-500 ${fontSize} ${nightMode ? 'text-[#D4AF37]/90' : 'text-brand-dark/90'}`}>
-          <ReactMarkdown
-            components={{
-              p: ({ children }) => <p className="mb-6 whitespace-pre-line">{children}</p>,
-              strong: ({ children }) => <strong className="font-bold text-brand-dark-blue dark:text-brand-gold">{children}</strong>,
-              em: ({ children }) => <em className="italic">{children}</em>,
-              blockquote: ({ children }) => (
-                <blockquote className="ml-8 pl-4 border-l-2 border-brand-gold/50 text-[0.9em] text-gray-600 dark:text-gray-400 mb-6 italic text-right">
-                  {children}
-                </blockquote>
-              )
-            }}
-          >
-            {currentChapter.content || ''}
-          </ReactMarkdown>
-        </div>
-
-        <footer 
-          className="mt-20 pt-10 border-t border-brand-gold/10 flex justify-between items-center"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-        >
-          {hasPrev ? (
-            <button onClick={handlePrevChapter} className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-gray-400 text-gray-400 hover:text-brand-gold'}`}>
-              <ChevronLeft size={12} className="inline mr-1 mb-0.5" /> {t('reader.prev')}
-            </button>
-          ) : <div />}
-
-          {hasNext ? (
-            <button onClick={handleNextChapter} className={`inline-block border-b text-[11px] uppercase font-bold pb-1 transition-all ${nightMode ? 'border-brand-gold text-brand-gold' : 'border-gray-400 text-gray-400 hover:text-brand-gold'}`}>
-              {t('reader.next')} <ChevronRight size={12} className="inline ml-1 mb-0.5" />
-            </button>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">{t('reader.end_of_book')}</span>
-              <button onClick={async () => {
-                if (!userId || !id) return;
-                const finalCompleted = Array.from(new Set([...completedChapters, currentChapter.chapter_number]));
-                await supabase.from('reading_progress').upsert({
-                  user_id: userId,
-                  book_id: id,
-                  completed_chapters: finalCompleted,
-                  last_read_at: new Date().toISOString()
-                }, { onConflict: 'user_id,book_id' });
-                setCompletedChapters(finalCompleted);
-              }} className="text-[9px] text-brand-gold font-bold underline">
-                {t('reader.mark_completed')}
-              </button>
             </div>
-          )}
-        </footer>
-      </article>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showChapterMenu && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
             onClick={() => setShowChapterMenu(false)}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end"
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-end"
           >
             <motion.div 
               initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               onClick={(e) => e.stopPropagation()}
-              className={`w-[85%] max-w-sm h-full shadow-2xl flex flex-col border-l border-brand-gold/10 ${nightMode ? 'bg-[#121212]' : 'bg-[#F9F9F7]'}`}
+              className={`w-[85%] max-w-sm h-full shadow-2xl flex flex-col border-l border-brand-gold/10 ${prefs.nightMode ? 'bg-[#1A1A1A]' : 'bg-[#F9F9F7]'}`}
             >
               <div 
                 className="p-6 border-b border-brand-gold/10 flex justify-between items-center shrink-0" 
                 style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top))' }}
               >
-                <h2 className={`text-xl font-serif italic ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>{t('reader.index')}</h2>
-                <button onClick={() => setShowChapterMenu(false)} className={`p-2 active:scale-90 transition-transform ${nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>
+                <h2 className={`text-xl font-serif italic ${prefs.nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>{t('reader.index')}</h2>
+                <button onClick={() => setShowChapterMenu(false)} className={`p-2 active:scale-90 transition-transform ${prefs.nightMode ? 'text-brand-gold' : 'text-brand-dark-blue'}`}>
                   <X size={24} />
                 </button>
               </div>
-              <div className="flex-grow overflow-y-auto p-4 space-y-2">
-                {/* 🌟 MENÚ DE CAPÍTULOS POR TÍTULO */}
+              <div className="flex-grow overflow-y-auto p-4 space-y-2 pb-24">
                 {chapters.map((chap, idx) => (
                   <button 
                     key={chap.id} 
                     onClick={() => {
-                      setCurrentIdx(idx);
+                      setCurrentChapterIdx(idx);
                       setShowChapterMenu(false);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className={`w-full text-left p-4 rounded-xl transition-colors ${
-                      currentIdx === idx 
-                        ? (nightMode ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-dark-blue/10 text-brand-dark-blue') 
-                        : (nightMode ? 'text-gray-300 active:bg-white/5' : 'text-brand-dark active:bg-black/5')
+                    className={`w-full text-left p-4 rounded-xl text-sm transition-colors ${
+                      currentChapterIdx === idx 
+                        ? (prefs.nightMode ? 'bg-brand-gold/20 text-brand-gold font-bold' : 'bg-brand-dark-blue/10 text-brand-dark-blue font-bold') 
+                        : (prefs.nightMode ? 'text-gray-300 active:bg-white/5' : 'text-brand-dark active:bg-black/5')
                     }`}
                   >
-                    <span className="block text-[10px] font-bold uppercase tracking-[0.2em] opacity-70 mb-1">
-                      {t('reader.chapter')} {chap.chapter_number}
-                    </span>
-                    <span className="block font-serif italic text-lg leading-tight">
-                      {chap.title || 'Sin título'}
-                    </span>
+                    {chap.title || `${t('reader.chapter')} ${chap.chapter_number}`}
                   </button>
                 ))}
               </div>
@@ -483,14 +432,72 @@ function ReaderContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <main 
+        ref={contentRef}
+        className="relative z-20 pointer-events-none px-6 sm:px-12 py-24 mx-auto w-full max-w-2xl flex flex-col min-h-screen"
+      >
+        <h1 className="font-serif italic text-3xl md:text-4xl mb-12 text-center opacity-90">
+          {currentChapter.title}
+        </h1>
+        
+        <div className={`font-texto leading-loose tracking-wide ${prefs.fontSize} text-justify opacity-90 flex-grow [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:mx-auto [&_img]:my-8`}>
+          <ReactMarkdown>
+            {currentChapter.content || ''}
+          </ReactMarkdown>
+        </div>
+
+        <footer 
+          className="mt-16 pt-8 border-t border-brand-gold/20 flex justify-between items-center pointer-events-auto"
+          style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+        >
+          {currentChapterIdx > 0 ? (
+            <button 
+              onClick={handlePrevChapter} 
+              className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest transition-colors ${prefs.nightMode ? 'text-gray-400 hover:text-brand-gold' : 'text-gray-500 hover:text-brand-dark-blue'}`}
+            >
+              <ChevronLeft size={16} />
+              {t('reader.prev')}
+            </button>
+          ) : <div />}
+
+          {currentChapterIdx < chapters.length - 1 ? (
+            <button 
+              onClick={handleNextChapter} 
+              className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest transition-colors ${prefs.nightMode ? 'text-gray-400 hover:text-brand-gold' : 'text-gray-500 hover:text-brand-dark-blue'}`}
+            >
+              {t('reader.next')} 
+              <ChevronRight size={16} />
+            </button>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">{t('reader.end_of_book')}</span>
+              <button 
+                onClick={() => saveProgress(currentChapterIdx)} 
+                className="text-[9px] text-brand-gold font-bold underline active:scale-95"
+              >
+                {t('reader.mark_completed')}
+              </button>
+            </div>
+          )}
+        </footer>
+      </main>
     </div>
   );
 }
 
-export default function ReaderPage() {
+// ==========================================
+// SKELETON LOADER
+// ==========================================
+function ReaderSkeleton() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#F9F9F7]"><div className="w-8 h-8 border-4 border-brand-gold border-t-transparent rounded-full animate-spin" /></div>}>
-      <ReaderContent />
-    </Suspense>
+    <div className="min-h-[100dvh] bg-[#F9F9F7] dark:bg-[#121212] px-6 py-24 mx-auto max-w-2xl transition-colors duration-500">
+      <div className="w-3/4 h-10 bg-gray-200 dark:bg-white/5 rounded-lg mx-auto mb-16 animate-pulse" />
+      <div className="space-y-6">
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <div key={i} className={`h-4 bg-gray-200 dark:bg-white/5 rounded-full animate-pulse ${i % 3 === 0 ? 'w-5/6' : 'w-full'}`} />
+        ))}
+      </div>
+    </div>
   );
 }

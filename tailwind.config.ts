@@ -12,7 +12,9 @@ const config: Config = {
     extend: {
       fontFamily: {
         // FIX: Conectamos la clase font-texto con la fuente inyectada desde layout.tsx
-        texto: ['var(--font-literata)', 'Georgia', 'serif'],
+        sans: ['var(--font-sans)', 'sans-serif'],
+        serif: ['var(--font-serif)', 'serif'],
+        texto: ['var(--font-texto)', 'serif'],
       },
       fontSize: {
         'h1': ['1.875rem', { lineHeight: '2.25rem' }],

@@ -1,57 +1,79 @@
-// Nombre único de la "caja" donde guardaremos todo (versionado para evitar conflictos con cachés viejas)
-const PREFS_KEY = 'apapacho_v2_prefs';
+import { StorageService, STORAGE_KEYS } from './storage';
 
-// Definimos estrictamente qué datos existen en nuestras preferencias
+export type SupportedLanguage = 'es' | 'pt' | 'en';
+export type FontSizePreference = 'text-base' | 'text-lg' | 'text-xl';
+
 export interface AppPreferences {
-  fontSize: string;
-  nightMode: boolean | null;
-  language: string | null; // Cambiado a null para permitir detección del OS
-  lastRoute: string;
+  schemaVersion: number;
+  nightMode: boolean | null; // null = deferir a preferencia del OS
+  fontSize: FontSizePreference;
 }
 
-// Los valores por defecto si el usuario es nuevo
-const defaultPrefs: AppPreferences = {
+const PREFERENCES_SCHEMA_VERSION = 1;
+
+const DEFAULT_PREFS: AppPreferences = {
+  schemaVersion: PREFERENCES_SCHEMA_VERSION,
+  nightMode: null,
   fontSize: 'text-lg',
-  nightMode: null, // null permite detectar luego si debemos usar el tema del sistema
-  language: null,  // null permite que useLanguage aplique el idioma del OS
-  lastRoute: '/home',
 };
 
-// Función para LEER las preferencias de forma segura
-export const getPrefs = (): AppPreferences => {
-  if (typeof window === 'undefined') return defaultPrefs;
-  
-  try {
-    const stored = window.localStorage.getItem(PREFS_KEY);
-    if (!stored) return defaultPrefs;
-    
-    const parsed = JSON.parse(stored);
-    
-    // Mezclamos los defaults con lo guardado asegurando que si falta una clave no se rompa la app
-    return { ...defaultPrefs, ...parsed };
-  } catch (error) {
-    console.warn('[Prefs] Preferencias corruptas. Restaurando valores por defecto de forma segura.');
-    // Si el JSON está irremediablemente roto, limpiamos solo esta clave, no todo el storage
-    window.localStorage.removeItem(PREFS_KEY);
-    return defaultPrefs;
-  }
-};
+function migratePreferences(
+  stored: Partial<AppPreferences> | null
+): AppPreferences {
+  if (!stored) return DEFAULT_PREFS;
 
-// Función para ACTUALIZAR una o varias preferencias
-export const updatePrefs = (newPrefs: Partial<AppPreferences>) => {
-  if (typeof window === 'undefined') return;
-  
-  const current = getPrefs();
-  const updated = { ...current, ...newPrefs };
-  
-  window.localStorage.setItem(PREFS_KEY, JSON.stringify(updated));
-  return updated;
-};
+  return {
+    ...DEFAULT_PREFS,
+    ...stored,
+    schemaVersion: PREFERENCES_SCHEMA_VERSION,
+  };
+}
 
-// Función para BORRAR exclusivamente las preferencias de esta app (Ideal para cuando se hace Sign Out)
-export const clearPrefs = () => {
-  if (typeof window !== 'undefined') {
-    // Eliminamos estrictamente nuestro namespace, sin usar .clear() global
-    window.localStorage.removeItem(PREFS_KEY);
-  }
+export const PreferencesService = {
+  getPrefs(): AppPreferences {
+    const stored = StorageService.get<Partial<AppPreferences>>(STORAGE_KEYS.PREFERENCES);
+    const migrated = migratePreferences(stored);
+
+    StorageService.set(STORAGE_KEYS.PREFERENCES, migrated);
+    return migrated;
+  },
+
+  updatePrefs(newPrefs: Partial<Omit<AppPreferences, 'schemaVersion'>>): void {
+    const current = this.getPrefs();
+    const updated: AppPreferences = {
+      ...current,
+      ...newPrefs,
+      schemaVersion: PREFERENCES_SCHEMA_VERSION,
+    };
+
+    StorageService.set(STORAGE_KEYS.PREFERENCES, updated);
+  },
+
+  getLanguage(): SupportedLanguage | null {
+    const lang = StorageService.getRaw(STORAGE_KEYS.LANGUAGE);
+    if (lang === 'es' || lang === 'pt' || lang === 'en') return lang;
+    return null;
+  },
+
+  setLanguage(lang: SupportedLanguage): void {
+    StorageService.setRaw(STORAGE_KEYS.LANGUAGE, lang);
+  },
+
+  getLastRoute(): string | null {
+    return StorageService.getRaw(STORAGE_KEYS.LAST_ROUTE);
+  },
+
+  setLastRoute(route: string): void {
+    StorageService.setRaw(STORAGE_KEYS.LAST_ROUTE, route);
+  },
+
+  clearEphemeralState(): void {
+    StorageService.clearEphemeralStorage();
+  },
+
+  resetAllPreferences(): void {
+    StorageService.remove(STORAGE_KEYS.PREFERENCES);
+    StorageService.remove(STORAGE_KEYS.LANGUAGE);
+    this.clearEphemeralState();
+  },
 };
