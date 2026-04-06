@@ -111,12 +111,8 @@ export default function CuentaPage() {
   const updateAvatar = async (avatarUrl: string) => {
     if (!profile) return;
     try {
-      await AuthService.createProfile({
-        id: profile.id,
-        username: profile.username,
-        full_name: profile.full_name || '',
-        dob: profile.dob || '',
-        country: profile.country || '',
+      // 🌟 Usamos la nueva función updateProfile para actualizaciones parciales y tipadas
+      await AuthService.updateProfile(profile.id, {
         avatar_url: avatarUrl
       });
       setProfile({ ...profile, avatar_url: avatarUrl });
@@ -263,7 +259,6 @@ export default function CuentaPage() {
 // SUBCOMPONENTES LOCALES
 // ==========================================
 
-// Refactorizado para tener dos filas: Etiqueta arriba, valor abajo (evita amontonamiento)
 function InfoRow({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {
   return (
     <div className="w-full flex items-center p-4 gap-4">
@@ -311,7 +306,6 @@ function AvatarSelectionModal({ t, currentAvatar, onClose, onSelect }: any) {
               onClick={() => onSelect(url)}
               className={`aspect-square rounded-full overflow-hidden cursor-pointer active:scale-90 transition-transform border-4 relative ${currentAvatar === url ? 'border-brand-gold' : 'border-transparent hover:border-brand-gold/30'}`}
             >
-              {/* Aquí renderizamos la imagen miniatura */}
               <img 
                 src={url} 
                 alt={`Avatar ${idx + 1}`} 

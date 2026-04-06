@@ -7,14 +7,17 @@ export interface AppPreferences {
   schemaVersion: number;
   nightMode: boolean | null; // null = deferir a preferencia del OS
   fontSize: FontSizePreference;
+  language: SupportedLanguage | null; // 🌟 AHORA EL IDIOMA VIVE AQUÍ (API Unificada)
 }
 
-const PREFERENCES_SCHEMA_VERSION = 1;
+// 🌟 Subimos a la v2 para forzar la migración del idioma legacy
+const PREFERENCES_SCHEMA_VERSION = 2;
 
 const DEFAULT_PREFS: AppPreferences = {
   schemaVersion: PREFERENCES_SCHEMA_VERSION,
   nightMode: null,
   fontSize: 'text-lg',
+  language: null,
 };
 
 function migratePreferences(
@@ -22,9 +25,19 @@ function migratePreferences(
 ): AppPreferences {
   if (!stored) return DEFAULT_PREFS;
 
+  // Migración Legacy: Si venimos de la v1, rescatamos el idioma que estaba suelto
+  let migratedLanguage = stored.language;
+  if (!migratedLanguage && stored.schemaVersion === 1) {
+    const legacyLang = StorageService.getRaw(STORAGE_KEYS.LANGUAGE) as SupportedLanguage;
+    if (legacyLang === 'es' || legacyLang === 'pt' || legacyLang === 'en') {
+      migratedLanguage = legacyLang;
+    }
+  }
+
   return {
     ...DEFAULT_PREFS,
     ...stored,
+    language: migratedLanguage || null,
     schemaVersion: PREFERENCES_SCHEMA_VERSION,
   };
 }
@@ -49,14 +62,16 @@ export const PreferencesService = {
     StorageService.set(STORAGE_KEYS.PREFERENCES, updated);
   },
 
+  // 🌟 Mantenemos los métodos de conveniencia para no romper los hooks, 
+  // pero ahora apuntan directamente a la API centralizada.
   getLanguage(): SupportedLanguage | null {
-    const lang = StorageService.getRaw(STORAGE_KEYS.LANGUAGE);
-    if (lang === 'es' || lang === 'pt' || lang === 'en') return lang;
-    return null;
+    return this.getPrefs().language;
   },
 
   setLanguage(lang: SupportedLanguage): void {
-    StorageService.setRaw(STORAGE_KEYS.LANGUAGE, lang);
+    this.updatePrefs({ language: lang });
+    // Limpieza de deuda técnica (borramos la llave legacy si aún existe)
+    StorageService.remove(STORAGE_KEYS.LANGUAGE);
   },
 
   getLastRoute(): string | null {
@@ -73,7 +88,7 @@ export const PreferencesService = {
 
   resetAllPreferences(): void {
     StorageService.remove(STORAGE_KEYS.PREFERENCES);
-    StorageService.remove(STORAGE_KEYS.LANGUAGE);
+    StorageService.remove(STORAGE_KEYS.LANGUAGE); // Por si quedó algún rastro
     this.clearEphemeralState();
   },
 };

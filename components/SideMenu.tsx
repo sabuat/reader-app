@@ -10,12 +10,15 @@ import { AuthService } from '@/services/authService';
 import { PreferencesService, SupportedLanguage } from '@/lib/preferences';
 
 // ==========================================
-// INTERFACES
+// INTERFACES Y CONSTANTES
 // ==========================================
 interface SideMenuProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// 🌟 Alineamos con las rutas seguras del NavigationWrapper
+const VALID_ROUTES = ['/home', '/lecturas', '/cuenta'];
 
 // ==========================================
 // COMPONENTE PRINCIPAL
@@ -45,7 +48,8 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
 
     if (pathname !== path) {
       router.push(path);
-      PreferencesService.setLastRoute(path);
+      // 🌟 Delegamos la responsabilidad de guardar el LastRoute al NavigationWrapper
+      // para evitar colisiones y condiciones de carrera.
     }
   };
 
@@ -60,17 +64,22 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
     }
   };
 
-  // Función agregada para forzar actualización global tras el cambio
   const handleLanguageChange = (nextLang: SupportedLanguage) => {
     if (nextLang === lang) {
       onClose();
       return;
     }
 
-    PreferencesService.setLastRoute(pathname);
+    // 🌟 Validación estricta: Solo salvamos la ruta antes del reload si es segura.
+    // Esto evita que un reload en /leer (sin ID) rompa el bootstrap futuro.
+    if (pathname && VALID_ROUTES.includes(pathname)) {
+      PreferencesService.setLastRoute(pathname);
+    }
+    
     setLang(nextLang);
     onClose();
 
+    // Forzar actualización global tras el cambio
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         window.location.reload();
@@ -115,7 +124,9 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
                 <div className="w-10 h-10 bg-brand-gold/10 rounded-full flex items-center justify-center">
                   <User size={20} className="text-brand-gold" />
                 </div>
-                <span className="font-serif italic text-xl text-brand-dark dark:text-gray-200">Menú</span>
+                <span className="font-serif italic text-xl text-brand-dark dark:text-gray-200">
+                  {isReady ? (t('menu.title') || 'Menú') : 'Menú'}
+                </span>
               </div>
               <button onClick={onClose} className="p-2 active:scale-90 transition-transform bg-white dark:bg-black/30 rounded-full shadow-sm">
                 <X size={28} className="text-brand-dark dark:text-gray-300 transition-colors" />
@@ -148,7 +159,9 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 text-brand-dark dark:text-gray-400 pl-4">
                   <Languages size={18} className="text-brand-gold" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Idioma / Language</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">
+                    {isReady ? (t('menu.language') || 'Idioma / Language') : 'Idioma / Language'}
+                  </span>
                 </div>
                 <div className="flex bg-gray-100 dark:bg-black/40 rounded-full p-1 transition-colors">
                   {(['es', 'en', 'pt'] as SupportedLanguage[]).map((l) => (
@@ -170,7 +183,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
               >
                 <LogOut size={22} />
                 <span className="font-bold text-sm uppercase tracking-widest">
-                  {isReady ? t('menu.sign_out') : 'Cerrar sesión'}
+                  {isReady ? (t('menu.sign_out') || 'Cerrar sesión') : 'Cerrar sesión'}
                 </span>
               </button>
               

@@ -84,6 +84,7 @@ export default function RootLayout({
         className={`${fontSans.variable} ${fontSerif.variable} ${fontTexto.variable} antialiased bg-brand-bg dark:bg-[#121212] text-brand-dark dark:text-gray-200 min-h-[100dvh] flex flex-col overflow-x-hidden transition-colors duration-500`}
         style={{ WebkitTapHighlightColor: 'transparent' }}
       >
+        {/* 🌟 NavigationWrapper ahora está garantizado como el único manejador de layout interno */}
         <NavigationWrapper>
           {children}
         </NavigationWrapper>

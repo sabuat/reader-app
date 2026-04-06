@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { Home, BookOpen, User, Menu } from 'lucide-react'; // Eliminamos BookOpen
+import { Home, BookOpen, User, Menu } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 
 import SideMenu from '@/components/SideMenu';
@@ -12,16 +12,23 @@ import ThemeProvider from '@/components/ThemeProvider';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PreferencesService } from '@/lib/preferences';
 
+// 🌟 Validación estricta: Solo guardamos el historial en las rutas principales de navegación
+const VALID_ROUTES = ['/home', '/lecturas', '/cuenta'];
+
 export default function NavigationWrapper({ children }: { children: React.ReactNode }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { t, lang } = useLanguage();
+  const { t, isReady } = useLanguage();
 
+  // 🌟 Lógica normalizada para decidir qué elementos de UI mostrar
   const isReadingMode = pathname?.startsWith('/leer'); 
-  const showNav = pathname && pathname !== '/';
+  const isAuthPage = pathname === '/';
+  const showNav = !!pathname && !isAuthPage && !isReadingMode;
 
   useEffect(() => {
-    if (pathname && pathname !== '/') {
+    // Solo actualizamos la última ruta si es válida, evitando que el usuario
+    // quede atrapado en un 404 o en el lector al reiniciar la app
+    if (pathname && VALID_ROUTES.includes(pathname)) {
       PreferencesService.setLastRoute(pathname);
     }
   }, [pathname]);
@@ -30,7 +37,8 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
 
   return (
     <ThemeProvider>
-      {showNav && !isReadingMode && (
+      {/* CABECERA SUPERIOR */}
+      {showNav && (
         <header className="fixed top-0 w-full bg-brand-bg/80 dark:bg-[#121212]/90 backdrop-blur-md z-40 px-6 flex justify-between items-center border-b border-brand-gold/10 dark:border-brand-gold/20 transition-colors duration-500 pt-[env(safe-area-inset-top)] h-[calc(4rem+env(safe-area-inset-top))]">
           <Link href="/home" className="flex items-center active:scale-95 transition-transform">
             <Image src="/logo.png" alt="Logo" width={110} height={35} className="object-contain" priority />
@@ -42,30 +50,39 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
         </header>
       )}
 
+      {/* MENÚ LATERAL */}
       <AnimatePresence>
         {isMenuOpen && <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
       </AnimatePresence>
 
-      <main className={`flex-grow w-full overflow-x-hidden ${(!showNav || isReadingMode) ? 'pt-0' : 'pt-[calc(4rem+env(safe-area-inset-top))]'} ${!showNav || isReadingMode ? 'pb-0' : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'}`}>
+      {/* CONTENEDOR PRINCIPAL */}
+      {/* 🌟 Clases dinámicas calculadas limpiamente según si showNav es verdadero o falso */}
+      <main className={`flex-grow w-full overflow-x-hidden transition-all duration-300 ${!showNav ? 'pt-0 pb-0' : 'pt-[calc(4rem+env(safe-area-inset-top))] pb-[calc(5rem+env(safe-area-inset-bottom))]'}`}>
         {children}
       </main>
 
-      {/* BOTONERA INFERIOR (Ajustada a 3 botones) */}
-      {showNav && !isReadingMode && (
+      {/* BOTONERA INFERIOR */}
+      {showNav && (
         <nav className="fixed bottom-0 w-full bg-brand-bg dark:bg-[#121212] backdrop-blur-lg dark:backdrop-blur-none border-t border-brand-gold/10 dark:border-brand-gold/20 px-8 flex justify-around items-center z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-none transition-colors duration-500 pb-[calc(1rem+env(safe-area-inset-bottom))] h-[calc(5rem+env(safe-area-inset-bottom))]">
           <Link href="/home" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/home') ? 'text-brand-dark-blue dark:text-brand-gold' : 'text-gray-400 dark:text-gray-500'}`}>
             <Home size={22} />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">{t('box.home')}</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">
+              {isReady ? (t('box.home') || 'Inicio') : 'Inicio'}
+            </span>
           </Link>
           
           <Link href="/lecturas" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/lecturas') ? 'text-brand-dark-blue dark:text-brand-gold' : 'text-gray-400 dark:text-gray-500'}`}>
             <BookOpen size={22} />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">{t('box.readings')}</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">
+              {isReady ? (t('box.readings') || 'Lecturas') : 'Lecturas'}
+            </span>
           </Link>
 
           <Link href="/cuenta" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${isActive('/cuenta') ? 'text-brand-dark-blue dark:text-brand-gold' : 'text-gray-400 dark:text-gray-500'}`}>
             <User size={22} />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">{t('box.account')}</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">
+              {isReady ? (t('box.account') || 'Cuenta') : 'Cuenta'}
+            </span>
           </Link>
         </nav>
       )}

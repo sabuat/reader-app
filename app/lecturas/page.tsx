@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-// Cambiamos Trash2 por X
 import { BookOpen, X, Play, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -40,6 +39,7 @@ export default function LecturasPage() {
   // DATA FETCHING
   // ==========================================
   const fetchLists = useCallback(async (uid: string) => {
+    // 🌟 Gracias a la caché en BookService, esta llamada será instantánea si se hizo hace poco
     const [readings, saved] = await Promise.all([
       BookService.getMyReadings(uid),
       BookService.getMyList(uid)
@@ -71,7 +71,7 @@ export default function LecturasPage() {
         }
 
       } catch (error) {
-        console.error("[LecturasPage] Error de autenticación:", error);
+        console.error("[LecturasPage] Error cargando listas:", error);
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -153,9 +153,9 @@ export default function LecturasPage() {
               ))
             ) : (
               <EmptyState 
-                title={t('list.empty_reading')} 
-                desc={t('list.empty_reading_desc')} 
-                actionText={t('common.explore')}
+                title={t('list.empty_reading') || 'Nada por aquí'} 
+                desc={t('list.empty_reading_desc') || 'Aún no has comenzado ninguna lectura.'} 
+                actionText={t('common.explore') || 'Explorar'}
                 onAction={() => router.push('/home')}
               />
             )}
@@ -169,7 +169,7 @@ export default function LecturasPage() {
                 <SavedCard 
                   key={item.id} 
                   item={item} 
-                  onClick={() => setSelectedBook(item.books as Book)}
+                  onClick={() => setSelectedBook(item.book)}
                   onRemove={() => handleRemoveSaved(item.book_id)}
                   isRemoving={isRemoving === item.book_id}
                 />
@@ -177,9 +177,9 @@ export default function LecturasPage() {
             ) : (
               <div className="col-span-full">
                 <EmptyState 
-                  title={t('list.empty_saved')} 
-                  desc={t('list.empty_saved_desc')} 
-                  actionText={t('common.explore')}
+                  title={t('list.empty_saved') || 'Nada por aquí'} 
+                  desc={t('list.empty_saved_desc') || 'No tienes libros guardados.'} 
+                  actionText={t('common.explore') || 'Explorar'}
                   onAction={() => router.push('/home')}
                 />
               </div>
@@ -207,9 +207,8 @@ export default function LecturasPage() {
 // ==========================================
 
 function ReadingCard({ item, onContinue, t }: { item: ReadingBookItem; onContinue: () => void; t: (path: string) => string }) {
-  const resolveBook = (books: any): Book | null =>
-  Array.isArray(books) ? books[0] : books;
-  const book = resolveBook(item.books);
+  // 🌟 Se elimina resolveBook con any y se usa directamente item.book tipado
+  const book = item.book;
 
   if (!book) return null;
 
@@ -229,10 +228,9 @@ function ReadingCard({ item, onContinue, t }: { item: ReadingBookItem; onContinu
           <div className="w-full h-full flex items-center justify-center"><BookOpen size={20} className="text-gray-400" /></div>
         )}
         
-        {/* BOTÓN PLAY REDISEÑADO (Alto contraste y centrado visual) */}
+        {/* BOTÓN PLAY REDISEÑADO */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-14 h-14 flex items-center justify-center bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full shadow-xl transition-transform group-active:scale-90">
-            {/* Usamos Play puro, relleno, y con ml-1 para compensar el peso visual del triángulo */}
             <Play size={28} fill="currentColor" className="ml-1 opacity-100" />
           </div>
         </div>
@@ -259,7 +257,8 @@ function ReadingCard({ item, onContinue, t }: { item: ReadingBookItem; onContinu
 }
 
 function SavedCard({ item, onClick, onRemove, isRemoving }: { item: SavedBookItem; onClick: () => void; onRemove: () => void; isRemoving: boolean }) {
-  const book = Array.isArray(item.books) ? item.books[0] : item.books;
+  // 🌟 Consumo directo de la nueva estructura de caché normalizada
+  const book = item.book;
   if (!book) return null;
 
   return (

@@ -15,38 +15,43 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
   const [isInList, setIsInList] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   
-  // ESTADOS RESTAURADOS QUE HACÍAN FUNCIONAR TUS BOTONES
   const [isToggling, setIsToggling] = useState(false);
-  
-  // ESTADO NUEVO SOLO PARA EL ZOOM
   const [isZoomed, setIsZoomed] = useState(false);
 
   const { t } = useLanguage();
 
   useEffect(() => {
     let ignore = false;
+    
     async function checkData() {
+      // 🌟 Manejo explícito: si no hay libro o id válido, abortamos de inmediato
+      if (!book || !book.id) return;
+
       const session = await AuthService.getSession();
       const user = session?.user;
       
       if (!user || ignore) return;
       setUserId(user.id);
 
-      const progress = await BookService.getReadingProgress(user.id, book.id);
-      if (ignore) return;
-      if (progress) setHasProgress(true);
+      try {
+        const progress = await BookService.getReadingProgress(user.id, book.id);
+        if (ignore) return;
+        if (progress) setHasProgress(true);
 
-      const inList = await BookService.checkIfInMyList(user.id, book.id);
-      if (ignore) return;
-      setIsInList(inList);
+        const inList = await BookService.checkIfInMyList(user.id, book.id);
+        if (ignore) return;
+        setIsInList(inList);
+      } catch (error) {
+        console.error("[BookDetailSheet] Error verificando datos del libro:", error);
+      }
     }
+    
     checkData();
     return () => { ignore = true; };
-  }, [book.id]);
+  }, [book]);
 
-  // FUNCIÓN ORIGINAL RESTAURADA CON SUS BLOQUEOS DE SEGURIDAD
   const toggleList = async () => {
-    if (!userId || isToggling) return;
+    if (!userId || isToggling || !book?.id) return; // 🌟 Validación extra del ID
     setIsToggling(true);
     try {
       if (isInList) {
@@ -57,18 +62,25 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
         setIsInList(true);
       }
     } catch (error) {
-      console.error("Error toggling list", error);
+      console.error("[BookDetailSheet] Error al modificar la lista:", error);
     } finally {
       setIsToggling(false);
     }
   };
 
-  // NAVEGACIÓN RESTAURADA A TU NUEVA ARQUITECTURA (?bookId=)
   const handleReadClick = () => {
+    // 🌟 Navegación segura: Solo avanzamos si existe un bookId válido
+    if (!book?.id) {
+      console.error("[BookDetailSheet] Navegación abortada: Falta bookId.");
+      return;
+    }
+    
     if (book.published) {
       router.push(`/leer?bookId=${book.id}`);
     }
   };
+
+  if (!book) return null; // 🌟 Prevenir pantalla en blanco si el objeto es null
 
   return (
     <>
@@ -91,14 +103,14 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
           }}
         >
           <button onClick={onClose} className="p-2 active:scale-90 transition-transform"><X size={28} className="text-brand-dark dark:text-gray-300" /></button>
-          <span className="text-[10px] font-bold tracking-[0.3em] text-brand-gold uppercase">{t('common.details')}</span>
+          <span className="text-[10px] font-bold tracking-[0.3em] text-brand-gold uppercase">{t('common.details') || 'Detalles'}</span>
           <div className="w-10" />
         </div>
 
         {/* CONTENIDO PRINCIPAL */}
         <div className="flex-grow overflow-y-auto z-10 flex flex-col items-center px-6 pt-8 pb-10">
           
-          {/* PORTADA CON ZOOM (Única modificación visual aquí) */}
+          {/* PORTADA CON ZOOM */}
           <div 
             onClick={() => setIsZoomed(true)}
             className="relative w-[210px] h-[315px] shrink-0 mb-8 shadow-2xl rounded-md overflow-hidden border border-brand-gold/5 dark:border-brand-gold/10 cursor-zoom-in active:scale-95 transition-transform"
@@ -109,11 +121,11 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
           <h2 className="text-3xl font-serif italic text-brand-gold text-center mb-2">{book.title}</h2>
           <p className="text-xs font-texto uppercase tracking-[0.3em] text-brand-dark/60 dark:text-gray-400 mb-8 transition-colors">{book.author}</p>
           <div className="w-full border-t border-brand-gold/10 dark:border-brand-gold/20 pt-8 text-sm text-justify leading-relaxed text-brand-dark dark:text-gray-300 transition-colors">
-            {book.description || t('common.no_description')}
+            {book.description || t('common.no_description') || 'Sin descripción disponible.'}
           </div>
         </div>
 
-        {/* BOTONES INFERIORES RESTAURADOS A SU FUNCIONAMIENTO ORIGINAL */}
+        {/* BOTONES INFERIORES */}
         <div 
           className="grid grid-cols-2 gap-4 backdrop-blur-xl bg-white/90 dark:bg-[#121212]/95 border-t border-brand-gold/10 dark:border-brand-gold/20 z-20 shrink-0 transition-colors duration-500 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.5)]"
           style={{ 
@@ -130,7 +142,7 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
                 : 'bg-brand-gold text-white dark:text-[#121212]'
             }`}
           >
-            {isInList ? t('common.remove_list') : t('common.add_list')}
+            {isInList ? (t('common.remove_list') || 'Quitar de la lista') : (t('common.add_list') || 'Agregar a mi lista')}
           </button>
           <button 
             onClick={handleReadClick}
@@ -141,7 +153,7 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
                 : 'bg-gray-400 dark:bg-gray-600 text-white dark:text-gray-300 cursor-not-allowed'
             }`}
           >
-            {hasProgress ? t('reader.continue') : (book.published ? t('reader.read_now') : t('common.coming_soon'))}
+            {hasProgress ? (t('reader.continue') || 'Continuar') : (book.published ? (t('reader.read_now') || 'Leer ahora') : (t('common.coming_soon') || 'Próximamente'))}
           </button>
         </div>
       </motion.div>

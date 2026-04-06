@@ -131,7 +131,10 @@ export default function HomePage() {
   // ==========================================
   const dashboardData = useMemo(() => {
     const featured = books.find(b => b.new && b.published) || books.find(b => b.published);
-    const continueReadingBooks = readings.map(r => Array.isArray(r.books) ? r.books[0] : r.books).filter(Boolean) as Book[];
+    
+    // 🌟 Uso de la estructura normalizada: r.book directamente
+    const continueReadingBooks = readings.map(r => r.book).filter(Boolean) as Book[];
+    
     const newReleases = books.filter(b => b.new && b.id !== featured?.id);
     const inLanguage = books.filter(b => b.language?.toLowerCase() === lang.toLowerCase() && b.id !== featured?.id);
     const comingSoon = books.filter(b => !b.published);

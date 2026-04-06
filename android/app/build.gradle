@@ -8,8 +8,8 @@ android {
         applicationId "com.sabuat.apapacho"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "3.0.1"
+        versionCode 10
+        versionName "3.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Some envs claim that can not see this specifically for davinci library

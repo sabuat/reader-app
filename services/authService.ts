@@ -26,6 +26,9 @@ export interface CreateProfilePayload {
   avatar_url?: string;
 }
 
+// Payload flexible y tipado para actualizaciones parciales
+export type UpdateProfilePayload = Partial<Omit<CreateProfilePayload, 'id'>>;
+
 export const AuthService = {
   // ==========================================
   // GESTIÓN DE SESIÓN
@@ -104,12 +107,28 @@ export const AuthService = {
   },
 
   async createProfile(payload: CreateProfilePayload) {
-    // Validación de seguridad antes de intentar el upsert a Supabase
+    // Validación de seguridad antes de intentar la creación
     if (!payload.id || !payload.username || !payload.full_name) {
       throw new Error('Faltan campos obligatorios para crear el perfil.');
     }
 
     const { error } = await supabase.from('profiles').upsert(payload);
+    if (error) throw error;
+  },
+
+  async updateProfile(userId: string, payload: UpdateProfilePayload) {
+    // Validación de seguridad para actualizaciones parciales
+    if (!userId) {
+      throw new Error('Se requiere un ID de usuario válido para actualizar el perfil.');
+    }
+    
+    if (Object.keys(payload).length === 0) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', userId);
+
     if (error) throw error;
   }
 };

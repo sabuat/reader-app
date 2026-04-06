@@ -19,6 +19,7 @@ export function useLanguage() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    // 🌟 Ahora esto lee de la fuente única de la verdad (AppPreferences.language)
     const storedLang = PreferencesService.getLanguage();
 
     if (storedLang) {
@@ -26,7 +27,7 @@ export function useLanguage() {
     } else {
       const detectedLang = getDeviceLanguageFallback();
       setLangState(detectedLang);
-      PreferencesService.setLanguage(detectedLang);
+      PreferencesService.setLanguage(detectedLang); // 🌟 Se guarda en la API unificada
     }
 
     setIsReady(true);
@@ -34,7 +35,7 @@ export function useLanguage() {
 
   const setLang = useCallback((newLang: SupportedLanguage) => {
     setLangState(newLang);
-    PreferencesService.setLanguage(newLang);
+    PreferencesService.setLanguage(newLang); // 🌟 Se actualiza en la API unificada
   }, []);
 
   const t = useCallback(

@@ -56,7 +56,6 @@ export default function AuthPage() {
   }, [router]);
 
   useEffect(() => {
-    // Eliminado el patrón isMounted (obsoleto en React 18+)
     if (isReady) {
       processAuthState();
     }
@@ -68,6 +67,7 @@ export default function AuthPage() {
   };
 
   const handleProfileCreated = () => {
+    // 🌟 Se actualizan preferencias iniciales de forma segura, respetando el idioma actual (API unificada)
     PreferencesService.updatePrefs({ nightMode: null, fontSize: 'text-base' });
     PreferencesService.setLastRoute('/home');
     router.push('/home');
@@ -101,21 +101,21 @@ export default function AuthPage() {
               type="button" onClick={() => setView('login')}
               className={`flex-1 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all ${view === 'login' ? 'bg-white dark:bg-[#2A2A2A] text-brand-dark dark:text-brand-gold shadow-sm' : 'text-gray-400 dark:text-gray-500'}`}
             >
-              {t('auth.login_tab')}
+              {t('auth.login_tab') || 'INICIAR SESIÓN'}
             </button>
             <button 
               type="button" onClick={() => setView('register')}
               className={`flex-1 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all ${view === 'register' ? 'bg-white dark:bg-[#2A2A2A] text-brand-dark dark:text-brand-gold shadow-sm' : 'text-gray-400 dark:text-gray-500'}`}
             >
-              {t('auth.register_tab')}
+              {t('auth.register_tab') || 'REGISTRARSE'}
             </button>
           </div>
         )}
 
         {view === 'complete_profile' && (
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-serif italic text-brand-dark dark:text-gray-200 mb-2 transition-colors">{t('auth.almost_done')}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-brand-gold">{t('auth.need_more_data')}</p>
+            <h2 className="text-2xl font-serif italic text-brand-dark dark:text-gray-200 mb-2 transition-colors">{t('auth.almost_done') || 'Casi listo'}</h2>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-brand-gold">{t('auth.need_more_data') || 'Necesitamos unos datos más'}</p>
           </div>
         )}
 

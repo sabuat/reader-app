@@ -89,7 +89,14 @@ function ReaderContent() {
   // DATA FETCHING
   // ==========================================
   useEffect(() => {
-    if (!bookId || !langReady) return;
+    if (!langReady) return;
+
+    // 🌟 MANEJO EXPLÍCITO DE ERROR: Si no hay ID, evitamos la carga infinita
+    if (!bookId) {
+      console.error("[Reader] Navegación abortada: Falta parámetro bookId.");
+      setLoading(false);
+      return;
+    }
 
     let ignore = false; 
 
@@ -281,12 +288,13 @@ function ReaderContent() {
 
   if (loading || !langReady) return <ReaderSkeleton />;
 
-  if (!currentChapter) {
+  // 🌟 PREVENIR PANTALLA VACÍA: Si no hay datos válidos (incluyendo falta de bookId)
+  if (!bookId || chapters.length === 0 || !currentChapter) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-brand-bg dark:bg-[#121212]">
-        <p className="text-gray-500">{t('reader.no_content') || 'No se pudo cargar el contenido.'}</p>
+        <p className="text-gray-500">{t('reader.no_content') || 'No se pudo cargar el contenido o el enlace es inválido.'}</p>
         <button onClick={() => router.back()} className="mt-4 text-brand-gold uppercase tracking-widest text-xs font-bold">
-          {t('common.back')}
+          {t('common.back') || 'Volver'}
         </button>
       </div>
     );
