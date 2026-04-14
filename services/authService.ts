@@ -75,15 +75,13 @@ export const AuthService = {
   },
 
   async signInWithGoogle() {
-    // 🌟 BIFURCACIÓN: Detecta si estamos en Android/iOS o en la Web
     if (Capacitor.isNativePlatform()) {
-      // 📱 Flujo para la App Nativa
+      // 📱 Flujo App Nativa
       initGoogleAuth();
-      
       const googleUser = await GoogleAuth.signIn();
       const idToken = googleUser.authentication.idToken;
       
-      if (!idToken) throw new Error('No se recibió token de autenticación de Google');
+      if (!idToken) throw new Error('No se recibió token');
 
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
@@ -91,20 +89,24 @@ export const AuthService = {
       });
       
       if (error) throw error;
-      return data;
+      
+      // DEVOLVEMOS DIRECTAMENTE EL USUARIO
+      return data.user; 
       
     } else {
-      // 💻 Flujo para la Web App (app.editorialapapacho.com)
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      // 💻 Flujo Web App
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // Redirige al inicio de la web para que AuthPage procese la sesión
           redirectTo: window.location.origin, 
         }
       });
       
       if (error) throw error;
-      return data;
+      
+      // En la web, Supabase redirige el navegador automáticamente hacia Google.
+      // Devolvemos null para que la UI simplemente espere mientras la página cambia.
+      return null; 
     }
   },
 

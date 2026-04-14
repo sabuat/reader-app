@@ -49,8 +49,12 @@ export function LoginForm({ t, onSessionSuccess }: { t: any, onSessionSuccess: (
   const handleGoogleLogin = async () => {
     setLoading(true); setErrorMsg('');
     try {
-      const data = await AuthService.signInWithGoogle();
-      if (data.user) await onSessionSuccess(data.user);
+      // Flujo Limpio: Devuelve un 'User' (App) o 'null' (Web)
+      const user = await AuthService.signInWithGoogle();
+      
+      if (user) {
+        await onSessionSuccess(user);
+      }
     } catch (error) {
       setErrorMsg(t('auth.google_error'));
       setLoading(false);
@@ -98,8 +102,11 @@ export function RegisterForm({ t, onSessionSuccess, onProfileCreated }: { t: any
   const handleGoogleLogin = async () => {
     setLoading(true); setErrorMsg('');
     try {
-      const data = await AuthService.signInWithGoogle();
-      if (data.user) await onSessionSuccess(data.user);
+      // Flujo Limpio actualizado aquí también
+      const user = await AuthService.signInWithGoogle();
+      if (user) {
+        await onSessionSuccess(user);
+      }
     } catch (error) {
       setErrorMsg(t('auth.google_error'));
       setLoading(false);
