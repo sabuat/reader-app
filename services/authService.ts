@@ -1,6 +1,7 @@
 import { supabase, SupabaseHelper } from '@/lib/supabase';
 import { Profile } from '@/lib/types';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { Capacitor } from '@capacitor/core';
 
 // Estado global para evitar inicializaciones múltiples del plugin de Google
 let isGoogleAuthInitialized = false;
@@ -74,20 +75,37 @@ export const AuthService = {
   },
 
   async signInWithGoogle() {
-    initGoogleAuth();
-    
-    const googleUser = await GoogleAuth.signIn();
-    const idToken = googleUser.authentication.idToken;
-    
-    if (!idToken) throw new Error('No se recibió token de autenticación de Google');
+    // 🌟 BIFURCACIÓN: Detecta si estamos en Android/iOS o en la Web
+    if (Capacitor.isNativePlatform()) {
+      // 📱 Flujo para la App Nativa
+      initGoogleAuth();
+      
+      const googleUser = await GoogleAuth.signIn();
+      const idToken = googleUser.authentication.idToken;
+      
+      if (!idToken) throw new Error('No se recibió token de autenticación de Google');
 
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: idToken,
-    });
-    
-    if (error) throw error;
-    return data;
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      });
+      
+      if (error) throw error;
+      return data;
+      
+    } else {
+      // 💻 Flujo para la Web App (app.editorialapapacho.com)
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          // Redirige al inicio de la web para que AuthPage procese la sesión
+          redirectTo: window.location.origin, 
+        }
+      });
+      
+      if (error) throw error;
+      return data;
+    }
   },
 
   // ==========================================
