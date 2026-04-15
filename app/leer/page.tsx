@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
-import { AdMob } from '@capacitor-community/admob';
 import ReactMarkdown from 'react-markdown';
 
 import { supabase } from '@/lib/supabase';
@@ -72,10 +71,15 @@ function ReaderContent() {
       setSpeechSupported(true);
     }
 
-    if (Capacitor.isNativePlatform()) {
-      AdMob.initialize({
-        initializeForTesting: false, 
-      }).catch(e => console.error("[Reader] Error inicializando AdMob", e));
+    // 🌟 IMPORTACIÓN DINÁMICA: Solo carga AdMob si estamos en la app nativa y en el cliente
+    if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+      import('@capacitor-community/admob')
+        .then(({ AdMob }) => {
+          AdMob.initialize({
+            initializeForTesting: false, 
+          }).catch(e => console.error("[Reader] Error inicializando AdMob", e));
+        })
+        .catch(e => console.error("[Reader] Error cargando módulo AdMob", e));
     }
   }, []);
 
@@ -91,7 +95,6 @@ function ReaderContent() {
   useEffect(() => {
     if (!langReady) return;
 
-    // 🌟 MANEJO EXPLÍCITO DE ERROR: Si no hay ID, evitamos la carga infinita
     if (!bookId) {
       console.error("[Reader] Navegación abortada: Falta parámetro bookId.");
       setLoading(false);
@@ -164,8 +167,9 @@ function ReaderContent() {
   }, [userId, bookId, chapters]);
 
   const showRealAd = async () => {
-    if (!Capacitor.isNativePlatform()) {
-      console.log("💰 [AdMob SIMULADOR]: Anuncio Intersticial disparado.");
+    // 🌟 PROTECCIÓN WEB: Si estamos en navegador, simplemente simulamos el Ad y sumamos la vista
+    if (typeof window === 'undefined' || !Capacitor.isNativePlatform()) {
+      console.log("💰 [AdMob SIMULADOR]: Anuncio Intersticial disparado en Web.");
       if (bookId) {
         const { data } = await supabase.from('books').select('ad_views').eq('id', bookId).single();
         const currentViews = data?.ad_views || 0;
@@ -175,6 +179,9 @@ function ReaderContent() {
     }
 
     try {
+      // 🌟 IMPORTACIÓN DINÁMICA: Trae la librería solo en el momento de mostrar el anuncio
+      const { AdMob } = await import('@capacitor-community/admob');
+      
       await AdMob.prepareInterstitial({
         adId: 'ca-app-pub-6944764501142533/1335629634', 
         isTesting: false 
@@ -288,7 +295,6 @@ function ReaderContent() {
 
   if (loading || !langReady) return <ReaderSkeleton />;
 
-  // 🌟 PREVENIR PANTALLA VACÍA: Si no hay datos válidos (incluyendo falta de bookId)
   if (!bookId || chapters.length === 0 || !currentChapter) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-brand-bg dark:bg-[#121212]">

@@ -1,14 +1,15 @@
 import { supabase, SupabaseHelper } from '@/lib/supabase';
 import { Profile } from '@/lib/types';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { Capacitor } from '@capacitor/core';
 
 // Estado global para evitar inicializaciones múltiples del plugin de Google
 let isGoogleAuthInitialized = false;
 
-const initGoogleAuth = () => {
-  if (!isGoogleAuthInitialized && typeof window !== 'undefined') {
+const initGoogleAuth = async () => {
+  // 🌟 Importación dinámica: Solo se ejecuta si estamos en el cliente Y en la app nativa
+  if (!isGoogleAuthInitialized && typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
     try {
+      const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
       GoogleAuth.initialize();
       isGoogleAuthInitialized = true;
     } catch (error) {
@@ -17,7 +18,7 @@ const initGoogleAuth = () => {
   }
 };
 
-// Payload estricto para la creación de perfiles, evitando inserciones corruptas o vacías
+// Payload estricto para la creación de perfiles
 export interface CreateProfilePayload {
   id: string;
   username: string;
@@ -36,17 +37,13 @@ export const AuthService = {
   // ==========================================
   
   async getSession() {
-    // Delega la recuperación segura y manejo de caché corrupta al Helper
     return await SupabaseHelper.getSafeSession();
   },
 
   async signOut() {
-    // Ejecuta el cierre de sesión remoto (si la red lo permite) e impone 
-    // una limpieza drástica de la caché local para evitar "ghost sessions".
     await SupabaseHelper.resetSession();
   },
 
-  // Helper integral para facilitar el flujo de arranque (bootstrap) en la UI
   async getCurrentUserWithProfile() {
     const session = await this.getSession();
     if (!session?.user) return null;
@@ -75,13 +72,17 @@ export const AuthService = {
   },
 
   async signInWithGoogle() {
-    if (Capacitor.isNativePlatform()) {
-      // 📱 Flujo App Nativa
-      initGoogleAuth();
+    // 🌟 Bifurcación limpia y protegida contra Server-Side Rendering (SSR)
+    if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+      
+      // 📱 Flujo App Nativa (Android/iOS)
+      await initGoogleAuth();
+      const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+      
       const googleUser = await GoogleAuth.signIn();
       const idToken = googleUser.authentication.idToken;
       
-      if (!idToken) throw new Error('No se recibió token');
+      if (!idToken) throw new Error('No se recibió token de autenticación de Google');
 
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
@@ -90,23 +91,23 @@ export const AuthService = {
       
       if (error) throw error;
       
-      // DEVOLVEMOS DIRECTAMENTE EL USUARIO
-      return data.user; 
+      // Devolvemos el usuario directamente para que la UI lo consuma sin hacer adivinanzas
+      return data.user;
       
     } else {
-      // 💻 Flujo Web App
+      
+      // 💻 Flujo Web App (Navegador)
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin, 
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : '', 
         }
       });
       
       if (error) throw error;
       
-      // En la web, Supabase redirige el navegador automáticamente hacia Google.
-      // Devolvemos null para que la UI simplemente espere mientras la página cambia.
-      return null; 
+      // En la web, la página se recargará hacia Google. Devolvemos null.
+      return null;
     }
   },
 
@@ -121,13 +122,11 @@ export const AuthService = {
       .eq('id', userId)
       .maybeSingle();
 
-    // Permitimos explícitamente que no exista el perfil (PGRST116) sin lanzar error fatal
     if (error && error.code !== 'PGRST116') throw error;
     return data as Profile | null;
   },
 
   async createProfile(payload: CreateProfilePayload) {
-    // Validación de seguridad antes de intentar la creación
     if (!payload.id || !payload.username || !payload.full_name) {
       throw new Error('Faltan campos obligatorios para crear el perfil.');
     }
@@ -137,7 +136,6 @@ export const AuthService = {
   },
 
   async updateProfile(userId: string, payload: UpdateProfilePayload) {
-    // Validación de seguridad para actualizaciones parciales
     if (!userId) {
       throw new Error('Se requiere un ID de usuario válido para actualizar el perfil.');
     }
