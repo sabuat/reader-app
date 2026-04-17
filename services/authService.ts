@@ -2,23 +2,6 @@ import { supabase, SupabaseHelper } from '@/lib/supabase';
 import { Profile } from '@/lib/types';
 import { Capacitor } from '@capacitor/core';
 
-// Estado global para evitar inicializaciones múltiples del plugin de Google
-let isGoogleAuthInitialized = false;
-
-const initGoogleAuth = async () => {
-  // 🌟 Importación dinámica: Solo se ejecuta si estamos en el cliente Y en la app nativa
-  if (!isGoogleAuthInitialized && typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
-    try {
-      const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
-      GoogleAuth.initialize();
-      isGoogleAuthInitialized = true;
-    } catch (error) {
-      console.warn('[AuthService] Advertencia al inicializar GoogleAuth:', error);
-    }
-  }
-};
-
-// Payload estricto para la creación de perfiles
 export interface CreateProfilePayload {
   id: string;
   username: string;
@@ -28,7 +11,6 @@ export interface CreateProfilePayload {
   avatar_url?: string;
 }
 
-// Payload flexible y tipado para actualizaciones parciales
 export type UpdateProfilePayload = Partial<Omit<CreateProfilePayload, 'id'>>;
 
 export const AuthService = {
@@ -56,7 +38,7 @@ export const AuthService = {
   },
 
   // ==========================================
-  // AUTENTICACIÓN PURA
+  // AUTENTICACIÓN UNIVERSAL (WEB Y ANDROID)
   // ==========================================
 
   async signInWithEmail(email: string, password: string) {
@@ -72,47 +54,28 @@ export const AuthService = {
   },
 
   async signInWithGoogle() {
-    // 🌟 Bifurcación limpia y protegida contra Server-Side Rendering (SSR)
-    if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
-      
-      // 📱 Flujo App Nativa (Android/iOS)
-      await initGoogleAuth();
-      const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
-      
-      const googleUser = await GoogleAuth.signIn();
-      const idToken = googleUser.authentication.idToken;
-      
-      if (!idToken) throw new Error('No se recibió token de autenticación de Google');
+    // Definimos a dónde debe regresar Supabase después del login en Google
+    const redirectTo = typeof window !== 'undefined' && Capacitor.isNativePlatform()
+      ? 'apapacho://home' // Deep Link para Android
+      : typeof window !== 'undefined' 
+        ? `${window.location.origin}/home` // URL normal para Web
+        : '';
 
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: idToken,
-      });
-      
-      if (error) throw error;
-      
-      // Devolvemos el usuario directamente para que la UI lo consuma sin hacer adivinanzas
-      return data.user;
-      
-    } else {
-      
-      // 💻 Flujo Web App (Navegador)
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : '', 
-        }
-      });
-      
-      if (error) throw error;
-      
-      // En la web, la página se recargará hacia Google. Devolvemos null.
-      return null;
-    }
+    // Utilizamos el flujo OAuth estándar de Supabase para AMBAS plataformas
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: false,
+      }
+    });
+
+    if (error) throw error;
+    return data;
   },
 
   // ==========================================
-  // GESTIÓN DE PERFIL (BASE DE DATOS)
+  // GESTIÓN DE PERFIL
   // ==========================================
 
   async getProfile(userId: string): Promise<Profile | null> {
