@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { supabase } from '@/lib/supabase';
 import { BookService } from '@/services/bookService';
@@ -167,7 +168,6 @@ function ReaderContent() {
   }, [userId, bookId, chapters]);
 
   const showRealAd = async () => {
-    // 🌟 PROTECCIÓN WEB: Si estamos en navegador, simplemente simulamos el Ad y sumamos la vista
     if (typeof window === 'undefined' || !Capacitor.isNativePlatform()) {
       console.log("💰 [AdMob SIMULADOR]: Anuncio Intersticial disparado en Web.");
       if (bookId) {
@@ -179,7 +179,6 @@ function ReaderContent() {
     }
 
     try {
-      // 🌟 IMPORTACIÓN DINÁMICA: Trae la librería solo en el momento de mostrar el anuncio
       const { AdMob } = await import('@capacitor-community/admob');
       
       await AdMob.prepareInterstitial({
@@ -455,8 +454,14 @@ function ReaderContent() {
           {currentChapter.title}
         </h1>
         
-        <div className={`font-texto leading-loose tracking-wide ${prefs.fontSize} text-justify opacity-90 flex-grow [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:mx-auto [&_img]:my-8`}>
-          <ReactMarkdown>
+        <div className={`font-texto leading-relaxed tracking-wide ${prefs.fontSize} text-justify opacity-90 flex-grow [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:mx-auto [&_img]:my-8`}>
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({node, ...props}) => <p className="mb-6 leading-relaxed" {...props} />,
+              a: ({node, ...props}) => <a className="text-brand-gold underline offset-2" {...props} />
+            }}
+          >
             {currentChapter.content || ''}
           </ReactMarkdown>
         </div>
