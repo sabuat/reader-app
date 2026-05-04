@@ -458,8 +458,9 @@ function ReaderContent() {
           <ReactMarkdown 
             remarkPlugins={[remarkGfm]}
             components={{
-              p: ({node, ...props}) => <p className="mb-6 leading-relaxed" {...props} />,
-              a: ({node, ...props}) => {
+              // Evadimos el error de Typescript con : any
+              p: ({node, ...props}: any) => <p className="mb-6" {...props} />,
+              a: ({node, ...props}: any) => {
                 const isFootnote = props.id?.includes('fn') || props.href?.includes('#fn');
                 return (
                   <a 
@@ -478,7 +479,7 @@ function ReaderContent() {
                   />
                 );
               },
-              section: ({node, ...props}) => {
+              section: ({node, ...props}: any) => {
                 if (props['data-footnotes']) {
                   return <section className="mt-12 pt-8 border-t border-brand-gold/20 text-sm opacity-80 pointer-events-auto" {...props} />;
                 }
