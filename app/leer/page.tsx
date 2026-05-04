@@ -459,7 +459,31 @@ function ReaderContent() {
             remarkPlugins={[remarkGfm]}
             components={{
               p: ({node, ...props}) => <p className="mb-6 leading-relaxed" {...props} />,
-              a: ({node, ...props}) => <a className="text-brand-gold underline offset-2" {...props} />
+              a: ({node, ...props}) => {
+                const isFootnote = props.id?.includes('fn') || props.href?.includes('#fn');
+                return (
+                  <a 
+                    {...props} 
+                    className={`${isFootnote ? 'text-xs align-top ml-0.5' : ''} text-brand-gold underline underline-offset-4 hover:opacity-80 transition-opacity pointer-events-auto`}
+                    onClick={(e) => {
+                      if (props.href?.startsWith('#')) {
+                        e.preventDefault();
+                        const id = props.href.replace('#', '');
+                        const element = document.getElementById(id);
+                        if (element) {
+                          element.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }
+                    }}
+                  />
+                );
+              },
+              section: ({node, ...props}) => {
+                if (props['data-footnotes']) {
+                  return <section className="mt-12 pt-8 border-t border-brand-gold/20 text-sm opacity-80 pointer-events-auto" {...props} />;
+                }
+                return <section {...props} />;
+              }
             }}
           >
             {currentChapter.content || ''}
