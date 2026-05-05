@@ -24,7 +24,6 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
     let ignore = false;
     
     async function checkData() {
-      // 🌟 Manejo explícito: si no hay libro o id válido, abortamos de inmediato
       if (!book || !book.id) return;
 
       const session = await AuthService.getSession();
@@ -51,7 +50,7 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
   }, [book]);
 
   const toggleList = async () => {
-    if (!userId || isToggling || !book?.id) return; // 🌟 Validación extra del ID
+    if (!userId || isToggling || !book?.id) return; 
     setIsToggling(true);
     try {
       if (isInList) {
@@ -69,18 +68,13 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
   };
 
   const handleReadClick = () => {
-    // 🌟 Navegación segura: Solo avanzamos si existe un bookId válido
-    if (!book?.id) {
-      console.error("[BookDetailSheet] Navegación abortada: Falta bookId.");
-      return;
-    }
-    
+    if (!book?.id) return;
     if (book.published) {
       router.push(`/leer?bookId=${book.id}`);
     }
   };
 
-  if (!book) return null; // 🌟 Prevenir pantalla en blanco si el objeto es null
+  if (!book) return null; 
 
   return (
     <>
@@ -88,13 +82,11 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
         initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
         className="fixed inset-0 z-[100] flex flex-col bg-brand-bg dark:bg-[#121212] transition-colors duration-500"
       >
-        {/* Fondo difuminado original */}
         <div className="absolute inset-0 h-1/2 overflow-hidden pointer-events-none z-0">
           <img src={book.cover_url} className="w-full h-full object-cover scale-150 blur-[80px] opacity-30 dark:opacity-20 transition-opacity" alt="" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-brand-bg dark:to-[#121212] transition-colors" />
         </div>
 
-        {/* CABECERA */}
         <div 
           className="flex justify-between items-center border-b border-brand-gold/10 dark:border-brand-gold/20 backdrop-blur-md bg-brand-bg/80 dark:bg-[#121212]/80 z-20 shrink-0 transition-colors"
           style={{ 
@@ -107,10 +99,8 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
           <div className="w-10" />
         </div>
 
-        {/* CONTENIDO PRINCIPAL */}
         <div className="flex-grow overflow-y-auto z-10 flex flex-col items-center px-6 pt-8 pb-10">
           
-          {/* PORTADA CON ZOOM */}
           <div 
             onClick={() => setIsZoomed(true)}
             className="relative w-[210px] h-[315px] shrink-0 mb-8 shadow-2xl rounded-md overflow-hidden border border-brand-gold/5 dark:border-brand-gold/10 cursor-zoom-in active:scale-95 transition-transform"
@@ -120,12 +110,19 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
           
           <h2 className="text-3xl font-serif italic text-brand-gold text-center mb-2">{book.title}</h2>
           <p className="text-xs font-texto uppercase tracking-[0.3em] text-brand-dark/60 dark:text-gray-400 mb-8 transition-colors">{book.author}</p>
+          
+          {/* 🌟 NUEVO: Separación UX de párrafos para la sinopsis */}
           <div className="w-full border-t border-brand-gold/10 dark:border-brand-gold/20 pt-8 text-sm text-justify leading-relaxed text-brand-dark dark:text-gray-300 transition-colors">
-            {book.description || t('common.no_description') || 'Sin descripción disponible.'}
+            {book.description ? (
+              book.description.split('\n').map((paragraph: string, idx: number) => (
+                paragraph.trim() ? <p key={idx} className="mb-4">{paragraph}</p> : null
+              ))
+            ) : (
+              <p>{t('common.no_description') || 'Sin descripción disponible.'}</p>
+            )}
           </div>
         </div>
 
-        {/* BOTONES INFERIORES */}
         <div 
           className="grid grid-cols-2 gap-4 backdrop-blur-xl bg-white/90 dark:bg-[#121212]/95 border-t border-brand-gold/10 dark:border-brand-gold/20 z-20 shrink-0 transition-colors duration-500 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.5)]"
           style={{ 
@@ -158,7 +155,6 @@ export default function BookDetailSheet({ book, onClose }: { book: any, onClose:
         </div>
       </motion.div>
 
-      {/* OVERLAY DE ZOOM DE PORTADA */}
       <AnimatePresence>
         {isZoomed && (
           <motion.div 

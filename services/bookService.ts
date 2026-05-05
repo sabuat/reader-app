@@ -2,9 +2,6 @@ import { supabase } from '@/lib/supabase';
 import { Book, Chapter, ReadingProgress } from '@/lib/types';
 import { SupportedLanguage } from '@/lib/preferences';
 
-// ==========================================
-// CONSTANTES DE CONSULTA
-// ==========================================
 const BOOK_FIELDS = 'id, title, author, slug, description, published, chapters, cover_url, identificador, new, genre, language, ad_views, paginas, asin, link_amazon';
 const CHAPTER_FIELDS = 'id, book_id, chapter_number, title, content';
 const PROGRESS_FIELDS = 'id, user_id, book_id, chapter_number, completed_chapters, last_read_at';
@@ -18,7 +15,6 @@ export interface CatalogOptions {
   language?: string;
 }
 
-// 🌟 TIPADO MEJORADO: Respuestas normalizadas ('book' siempre será un único Book)
 export interface SavedBookItem {
   id: string;
   book_id: string;
@@ -33,10 +29,7 @@ export interface ReadingBookItem {
   book: Book;
 }
 
-// ==========================================
-// 🌟 CACHÉ LIGERA EN MEMORIA
-// ==========================================
-const CACHE_TTL = 1000 * 60 * 5; // 5 minutos de vida útil
+const CACHE_TTL = 1000 * 60 * 5; 
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 
 function getCached<T>(key: string): T | null {
@@ -58,12 +51,8 @@ function invalidateCache(prefix: string) {
 }
 
 export const BookService = {
-  // ==========================================
-  // CATÁLOGO
-  // ==========================================
   
   async getAllBooks(activeLanguage: SupportedLanguage = 'es', options?: CatalogOptions): Promise<Book[]> {
-    // 🌟 Uso de Caché
     const cacheKey = `books_${activeLanguage}_${JSON.stringify(options || {})}`;
     const cached = getCached<Book[]>(cacheKey);
     if (cached) return cached;
@@ -109,10 +98,6 @@ export const BookService = {
     return books;
   },
 
-  // ==========================================
-  // LECTURA DE CAPÍTULOS
-  // ==========================================
-
   async getChapters(bookId: string): Promise<Chapter[]> {
     const cacheKey = `chapters_${bookId}`;
     const cached = getCached<Chapter[]>(cacheKey);
@@ -130,10 +115,6 @@ export const BookService = {
     return data as Chapter[];
   },
 
-  // ==========================================
-  // MI LISTA (BOOKMARKS)
-  // ==========================================
-
   async getMyList(userId: string): Promise<SavedBookItem[]> {
     const cacheKey = `mylist_${userId}`;
     const cached = getCached<SavedBookItem[]>(cacheKey);
@@ -147,7 +128,6 @@ export const BookService = {
       
     if (error) throw new Error(`[BookService.getMyList] ${error.message}`);
     
-    // 🌟 Normalización: extraemos 'books' como un solo 'book' para facilitar UI
     const normalized = (data as Record<string, unknown>[]).map((item: any) => ({
       id: item.id,
       book_id: item.book_id,
@@ -164,7 +144,7 @@ export const BookService = {
       .insert({ user_id: userId, book_id: bookId });
       
     if (error) throw new Error(`[BookService.addToMyList] ${error.message}`);
-    invalidateCache(`mylist_${userId}`); // 🌟 Invalidar caché al mutar
+    invalidateCache(`mylist_${userId}`);
   },
 
   async removeFromMyList(userId: string, bookId: string): Promise<void> {
@@ -175,11 +155,10 @@ export const BookService = {
       .eq('book_id', bookId);
       
     if (error) throw new Error(`[BookService.removeFromMyList] ${error.message}`);
-    invalidateCache(`mylist_${userId}`); // 🌟 Invalidar caché al mutar
+    invalidateCache(`mylist_${userId}`);
   },
 
   async checkIfInMyList(userId: string, bookId: string): Promise<boolean> {
-    // Si ya tenemos la lista en caché, buscamos ahí directamente sin gastar un request
     const cacheKey = `mylist_${userId}`;
     const cached = getCached<SavedBookItem[]>(cacheKey);
     if (cached) {
@@ -195,10 +174,6 @@ export const BookService = {
     if (error) throw new Error(`[BookService.checkIfInMyList] ${error.message}`);
     return !!count;
   },
-
-  // ==========================================
-  // PROGRESO DE LECTURA
-  // ==========================================
 
   async getReadingProgress(userId: string, bookId: string): Promise<ReadingProgress | null> {
     const { data, error } = await supabase
@@ -224,7 +199,19 @@ export const BookService = {
       .upsert(progress, { onConflict: 'user_id,book_id' });
       
     if (error) throw new Error(`[BookService.updateProgress] ${error.message}`);
-    invalidateCache(`readings_${progress.user_id}`); // 🌟 Invalidar caché al mutar
+    invalidateCache(`readings_${progress.user_id}`);
+  },
+
+  // 🌟 NUEVO: API para eliminar libros en curso
+  async removeReadingProgress(userId: string, bookId: string): Promise<void> {
+    const { error } = await supabase
+      .from('reading_progress')
+      .delete()
+      .eq('user_id', userId)
+      .eq('book_id', bookId);
+      
+    if (error) throw new Error(`[BookService.removeReadingProgress] ${error.message}`);
+    invalidateCache(`readings_${userId}`); 
   },
 
   async getMyReadings(userId: string): Promise<ReadingBookItem[]> {
@@ -246,7 +233,6 @@ export const BookService = {
       
     if (error) throw new Error(`[BookService.getMyReadings] ${error.message}`);
     
-    // 🌟 Normalización de array problemático a objeto singular
     const normalized = (data as Record<string, unknown>[]).map((item: any) => ({
       chapter_number: item.chapter_number,
       completed_chapters: item.completed_chapters || [],

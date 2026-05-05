@@ -11,46 +11,31 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { Book } from '@/lib/types';
 import BookDetailSheet from '@/components/BookDetailSheet';
 
-// ==========================================
-// TIPOS DE PESTAÑAS
-// ==========================================
 type TabType = 'leyendo' | 'guardados';
 
 export default function LecturasPage() {
   const router = useRouter();
   const { t, isReady: langReady } = useLanguage();
 
-  // ==========================================
-  // ESTADOS DEL DOMINIO
-  // ==========================================
   const [userId, setUserId] = useState<string | null>(null);
   const [readingList, setReadingList] = useState<ReadingBookItem[]>([]);
   const [savedList, setSavedList] = useState<SavedBookItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ==========================================
-  // ESTADOS DE UI
-  // ==========================================
   const [activeTab, setActiveTab] = useState<TabType>('leyendo');
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
 
-  // ==========================================
-  // DATA FETCHING
-  // ==========================================
   const fetchLists = useCallback(async (uid: string) => {
-    // 🌟 Gracias a la caché en BookService, esta llamada será instantánea si se hizo hace poco
     const [readings, saved] = await Promise.all([
       BookService.getMyReadings(uid),
       BookService.getMyList(uid)
     ]);
-
     return { readings, saved };
   }, []);
 
   useEffect(() => {
     if (!langReady) return;
-
     let ignore = false;
 
     const init = async () => {
@@ -78,13 +63,9 @@ export default function LecturasPage() {
     };
 
     init();
-
     return () => { ignore = true; };
   }, [langReady, router, fetchLists]);
 
-  // ==========================================
-  // ACCIONES
-  // ==========================================
   const handleRemoveSaved = async (bookId: string) => {
     if (!userId) return;
     setIsRemoving(bookId);
@@ -98,13 +79,24 @@ export default function LecturasPage() {
     }
   };
 
+  // 🌟 NUEVO: Función para eliminar lecturas en progreso
+  const handleRemoveReading = async (bookId: string) => {
+    if (!userId) return;
+    setIsRemoving(bookId);
+    try {
+      await BookService.removeReadingProgress(userId, bookId);
+      setReadingList(prev => prev.filter(item => item.book_id !== bookId));
+    } catch (error) {
+      console.error("[LecturasPage] Error removiendo progreso:", error);
+    } finally {
+      setIsRemoving(null);
+    }
+  };
+
   const handleContinueReading = (bookId: string) => {
     router.push(`/leer?bookId=${bookId}`);
   };
 
-  // ==========================================
-  // RENDERIZADO
-  // ==========================================
   if (!langReady || loading) {
     return (
       <div className="min-h-[100dvh] bg-brand-bg dark:bg-[#121212] flex items-center justify-center transition-colors duration-500">
@@ -116,7 +108,6 @@ export default function LecturasPage() {
   return (
     <div className="w-full px-6 pt-6 pb-24 overflow-x-hidden relative bg-brand-bg dark:bg-[#121212] min-h-[100dvh] transition-colors duration-500">
       
-      {/* HEADER & TABS */}
       <header className="mb-8">
         <h1 className="text-2xl font-serif italic text-brand-dark dark:text-brand-gold mb-6 transition-colors">
           {t('menu.readings') || 'Mis Lecturas'}
@@ -138,7 +129,6 @@ export default function LecturasPage() {
         </div>
       </header>
 
-      {/* CONTENIDO DE TABS */}
       <main className="w-full">
         {activeTab === 'leyendo' && (
           <div className="space-y-4">
@@ -148,6 +138,8 @@ export default function LecturasPage() {
                   key={item.book_id} 
                   item={item} 
                   onContinue={() => handleContinueReading(item.book_id)}
+                  onRemove={() => handleRemoveReading(item.book_id)}
+                  isRemoving={isRemoving === item.book_id}
                   t={t}
                 />
               ))
@@ -188,7 +180,6 @@ export default function LecturasPage() {
         )}
       </main>
 
-      {/* DETALLE DEL LIBRO (OVERLAY) */}
       <AnimatePresence>
         {selectedBook && (
           <BookDetailSheet
@@ -202,25 +193,41 @@ export default function LecturasPage() {
   );
 }
 
-// ==========================================
-// SUBCOMPONENTES
-// ==========================================
-
-function ReadingCard({ item, onContinue, t }: { item: ReadingBookItem; onContinue: () => void; t: (path: string) => string }) {
-  // 🌟 Se elimina resolveBook con any y se usa directamente item.book tipado
+// 🌟 Componente refactorizado: Usa recuento real de capítulos e incluye botón de cierre.
+function ReadingCard({ item, onContinue, onRemove, isRemoving, t }: { item: ReadingBookItem; onContinue: () => void; onRemove: () => void; isRemoving: boolean; t: (path: string) => string }) {
   const book = item.book;
+  const [realTotal, setRealTotal] = useState(book?.chapters || 1);
+
+  // Calcula dinámicamente el número de capítulos reales consultando la BD/Caché
+  useEffect(() => {
+    let ignore = false;
+    if (book) {
+      BookService.getChapters(item.book_id).then(chaps => {
+        if (!ignore && chaps && chaps.length > 0) {
+          setRealTotal(chaps.length);
+        }
+      }).catch(() => {});
+    }
+    return () => { ignore = true; };
+  }, [book, item.book_id]);
 
   if (!book) return null;
 
-  const totalChapters = book.chapters || 1;
-  const progressPercent = Math.min(100, Math.round((item.chapter_number / totalChapters) * 100));
-  
+  const progressPercent = Math.min(100, Math.round((item.chapter_number / realTotal) * 100));
   const dateStr = new Date(item.last_read_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   return (
     <div className="bg-white dark:bg-[#1A1A1A] p-4 rounded-2xl shadow-sm border border-brand-gold/10 flex gap-4 transition-colors relative overflow-hidden group">
       
-      {/* CONTENEDOR DE LA PORTADA */}
+      {/* 🌟 BOTÓN X PARA ELIMINAR PROGRESO */}
+      <button 
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        disabled={isRemoving}
+        className="absolute top-3 right-3 p-1.5 bg-gray-100 dark:bg-white/5 rounded-full text-gray-400 hover:text-brand-red active:scale-90 transition-all disabled:opacity-50 z-10"
+      >
+        <X size={16} />
+      </button>
+
       <div className="relative w-24 aspect-[5/8] bg-gray-100 dark:bg-black/50 rounded-lg overflow-hidden shrink-0 shadow-inner cursor-pointer" onClick={onContinue}>
         {book.cover_url ? (
           <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
@@ -228,7 +235,6 @@ function ReadingCard({ item, onContinue, t }: { item: ReadingBookItem; onContinu
           <div className="w-full h-full flex items-center justify-center"><BookOpen size={20} className="text-gray-400" /></div>
         )}
         
-        {/* BOTÓN PLAY REDISEÑADO */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-14 h-14 flex items-center justify-center bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full shadow-xl transition-transform group-active:scale-90">
             <Play size={28} fill="currentColor" className="ml-1 opacity-100" />
@@ -236,7 +242,7 @@ function ReadingCard({ item, onContinue, t }: { item: ReadingBookItem; onContinu
         </div>
       </div>
       
-      <div className="flex flex-col justify-center flex-grow py-1">
+      <div className="flex flex-col justify-center flex-grow py-1 pr-6">
         <h3 className="font-serif italic text-lg text-brand-dark dark:text-gray-200 line-clamp-2 leading-tight mb-1">{book.title}</h3>
         <p className="text-[10px] uppercase font-bold tracking-widest text-brand-gold mb-3 line-clamp-1">{book.author}</p>
         
@@ -257,7 +263,6 @@ function ReadingCard({ item, onContinue, t }: { item: ReadingBookItem; onContinu
 }
 
 function SavedCard({ item, onClick, onRemove, isRemoving }: { item: SavedBookItem; onClick: () => void; onRemove: () => void; isRemoving: boolean }) {
-  // 🌟 Consumo directo de la nueva estructura de caché normalizada
   const book = item.book;
   if (!book) return null;
 
@@ -271,7 +276,6 @@ function SavedCard({ item, onClick, onRemove, isRemoving }: { item: SavedBookIte
         )}
       </div>
       
-      {/* BOTÓN X CON FONDO TRASLÚCIDO AL 30% */}
       <button 
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         disabled={isRemoving}
